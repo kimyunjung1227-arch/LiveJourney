@@ -15,6 +15,7 @@ const MapScreen = () => {
   const [selectedPinId, setSelectedPinId] = useState(null);
   const [detailPost, setDetailPost] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true); // 지도 로딩 상태
   
   // 검색
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,6 +76,7 @@ const MapScreen = () => {
         mapInstance.current = map;
         
         console.log('✅ 지도 생성 완료!');
+        setMapLoading(false); // 로딩 완료
         
         // 데이터 로드 - 직접 실행
         const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
@@ -497,6 +499,17 @@ const MapScreen = () => {
     <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
       <div className="flex-1 relative overflow-hidden">
         <div ref={mapRef} className="absolute inset-0 bg-zinc-200" />
+        
+        {/* 지도 로딩 */}
+        {mapLoading && (
+          <div className="absolute inset-0 bg-white dark:bg-zinc-900 flex items-center justify-center z-50">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">지도 로딩 중...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">잠시만 기다려주세요</p>
+            </div>
+          </div>
+        )}
 
         {/* 상단 */}
         <div className="absolute top-0 left-0 right-0 z-20 p-4">
