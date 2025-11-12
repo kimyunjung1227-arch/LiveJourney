@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { getWeatherByRegion, getTrafficByRegion } from '../api/weather';
 import { seedMockData } from '../utils/mockUploadData';
+import { filterRecentPosts } from '../utils/timeUtils';
 
 const RegionDetailScreen = () => {
   const navigate = useNavigate();
@@ -41,9 +42,13 @@ const RegionDetailScreen = () => {
   const loadRegionData = useCallback(() => {
     let uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
+    // 2일 이상 된 게시물 필터링 ⭐
+    uploadedPosts = filterRecentPosts(uploadedPosts, 2);
+    console.log(`📊 ${region.name} - 2일 이내 게시물: ${uploadedPosts.length}개`);
+    
     // Mock 데이터 생성 비활성화 - 프로덕션 모드
     if (uploadedPosts.length === 0) {
-      console.log('📭 업로드된 게시물이 없습니다.');
+      console.log('📭 최근 2일 이내 업로드된 게시물이 없습니다.');
     }
     
     const regionPosts = uploadedPosts.filter(
@@ -170,7 +175,7 @@ const RegionDetailScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <header className="screen-header flex items-center justify-between border-b border-gray-200/80 bg-background-light/80 p-4 pb-3 backdrop-blur-sm dark:border-gray-700/80 dark:bg-background-dark/80">
+        <header className="screen-header flex items-center justify-between border-b border-gray-200 bg-white p-4 pb-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <button 
           onClick={() => navigate(-1)}
           className="flex size-12 shrink-0 items-center justify-center text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"

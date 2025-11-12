@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { seedMockData } from '../utils/mockUploadData';
 import { getRegionDefaultImage, getRegionDisplayImage } from '../utils/regionDefaultImages';
+import { filterRecentPosts } from '../utils/timeUtils';
 
 const SearchScreen = () => {
   const navigate = useNavigate();
@@ -130,9 +131,13 @@ const SearchScreen = () => {
   const loadRegionPhotos = useCallback(() => {
     let uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
+    // 2일 이상 된 게시물 필터링 ⭐
+    uploadedPosts = filterRecentPosts(uploadedPosts, 2);
+    console.log(`📊 검색화면 - 2일 이내 게시물: ${uploadedPosts.length}개`);
+    
     // Mock 데이터 생성 비활성화 - 프로덕션 모드
     if (uploadedPosts.length === 0) {
-      console.log('📭 업로드된 게시물이 없습니다.');
+      console.log('📭 최근 2일 이내 업로드된 게시물이 없습니다.');
     }
     
     const photosByRegion = {};
@@ -361,7 +366,7 @@ const SearchScreen = () => {
     <div className="screen-layout text-text-light dark:text-text-dark bg-background-light dark:bg-background-dark">
       <div className="screen-content">
         {/* 헤더 */}
-        <div className="screen-header flex items-center p-4 pb-2 justify-between bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm">
+        <div className="screen-header flex items-center p-4 pb-2 justify-between bg-white dark:bg-gray-900 shadow-sm">
           <button 
             onClick={() => navigate(-1)}
             className="flex size-12 shrink-0 items-center"
@@ -377,7 +382,7 @@ const SearchScreen = () => {
         {/* 메인 컨텐츠 */}
         <div className="screen-body">
           {/* 검색창 + 결과 영역 - sticky */}
-          <div className="px-4 py-3 sticky top-16 z-30 bg-background-light dark:bg-background-dark">
+          <div className="px-4 py-3 sticky top-16 z-30 bg-white dark:bg-gray-900">
           <form onSubmit={handleSearch}>
             <label className="flex flex-col min-w-40 h-14 w-full">
               <div className="flex w-full flex-1 items-stretch rounded-full h-full">
@@ -488,7 +493,12 @@ const SearchScreen = () => {
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
             className="flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth"
-            style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+            style={{ 
+              scrollBehavior: 'smooth', 
+              WebkitOverflowScrolling: 'touch',
+              scrollSnapType: 'x mandatory',
+              scrollPaddingLeft: '16px'
+            }}
           >
             <div className="flex items-stretch px-4 gap-3 pb-2">
               {filteredRegionsByHashtag.slice(0, 12).map((region) => {
@@ -499,6 +509,7 @@ const SearchScreen = () => {
                   <div 
                     key={region.id} 
                     className="flex h-full flex-col gap-2 rounded-lg w-[280px] flex-shrink-0 cursor-pointer snap-start select-none"
+                    style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                     onClick={() => handleRegionClickWithDragCheck(region.name)}
                   >
                     <div 

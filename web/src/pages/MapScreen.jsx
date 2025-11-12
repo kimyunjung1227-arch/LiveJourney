@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { getCoordinatesByLocation, searchRegions } from '../utils/regionLocationMapping';
+import { filterRecentPosts } from '../utils/timeUtils';
 
 const MapScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const pinsRef = useRef([]);
@@ -12,6 +14,7 @@ const MapScreen = () => {
   const [allPins, setAllPins] = useState([]);
   const [visiblePins, setVisiblePins] = useState([]);
   const [mapLoading, setMapLoading] = useState(true);
+  const [selectedPinId, setSelectedPinId] = useState(null);
   
   // 검색
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +26,12 @@ const MapScreen = () => {
   const sheetRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(0);
+  
+  // 사진 리스트 마우스 드래그
+  const photoListRef = useRef(null);
+  const [isPhotoListDragging, setIsPhotoListDragging] = useState(false);
+  const [photoListStartX, setPhotoListStartX] = useState(0);
+  const [photoListScrollLeft, setPhotoListScrollLeft] = useState(0);
   
   // 초기화
   useEffect(() => {
@@ -38,14 +47,55 @@ const MapScreen = () => {
       }
 
       try {
-        const map = new window.kakao.maps.Map(mapRef.current, {
-          center: new window.kakao.maps.LatLng(37.5665, 126.9780),
-          level: 4
-        });
-        
-        mapInstance.current = map;
-        setMapLoading(false);
-        loadAllData();
+        // 현재 위치 가져오기
+        if (navigator.geolocation) {
+          console.log('📍 현재 위치 가져오는 중...');
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              console.log(`✅ 현재 위치: (${latitude}, ${longitude})`);
+              
+              // 현재 위치로 지도 생성
+              const map = new window.kakao.maps.Map(mapRef.current, {
+                center: new window.kakao.maps.LatLng(latitude, longitude),
+                level: 4
+              });
+              
+              mapInstance.current = map;
+              setMapLoading(false);
+              loadAllData();
+            },
+            (error) => {
+              console.log('⚠️ 위치 가져오기 실패, 기본 위치(서울) 사용');
+              
+              // 위치 가져오기 실패 시 기본 위치(서울시청)
+              const map = new window.kakao.maps.Map(mapRef.current, {
+                center: new window.kakao.maps.LatLng(37.5665, 126.9780),
+                level: 4
+              });
+              
+              mapInstance.current = map;
+              setMapLoading(false);
+              loadAllData();
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            }
+          );
+        } else {
+          // geolocation 지원 안 하면 기본 위치
+          console.log('⚠️ Geolocation 미지원, 기본 위치(서울) 사용');
+          const map = new window.kakao.maps.Map(mapRef.current, {
+            center: new window.kakao.maps.LatLng(37.5665, 126.9780),
+            level: 4
+          });
+          
+          mapInstance.current = map;
+          setMapLoading(false);
+          loadAllData();
+        }
       } catch (error) {
         console.error('지도 생성 실패:', error);
         setTimeout(init, 500);
@@ -55,44 +105,57 @@ const MapScreen = () => {
     init();
   }, []);
 
-  // 데이터 로드
-  const loadAllData = useCallback(() => {
-    const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-
-    const pins = posts
-      .map((p) => {
-        const coords = p.coordinates || getCoordinatesByLocation(p.detailedLocation || p.location);
-        if (!coords || !p.images?.[0]) return null;
-        
-        return {
-          id: p.id,
-          lat: coords.lat,
-          lng: coords.lng,
-          image: p.images[0],
-          title: p.detailedLocation || p.location,
-          categoryName: p.categoryName,
-          post: p
-        };
-      })
-      .filter(Boolean);
-
-    setAllPins(pins);
-    
-    if (pins.length > 0 && mapInstance.current) {
-      createPins(pins);
+  // 1. 보이는 핀 업데이트 (제일 먼저!)
+  const updateVisiblePins = useCallback(() => {
+    if (!mapInstance.current || allPins.length === 0) {
+      return;
     }
-  }, []);
 
-  // 핀 생성
+    const bounds = mapInstance.current.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+
+    const visible = allPins.filter(p =>
+      p.lat >= sw.getLat() && p.lat <= ne.getLat() &&
+      p.lng >= sw.getLng() && p.lng <= ne.getLng()
+    );
+
+    console.log(`👀 보이는 핀: ${visible.length}개 / 전체 ${allPins.length}개`);
+    setVisiblePins(visible);
+  }, [allPins]);
+
+  // 2. 핀 생성 (두 번째!)
   const createPins = useCallback((pins) => {
-    if (!mapInstance.current || pinsRef.current.length > 0) return;
+    if (!mapInstance.current) return;
+    
+    // 기존 핀 모두 제거
+    pinsRef.current.forEach(({ overlay }) => {
+      if (overlay && overlay.setMap) {
+        overlay.setMap(null);
+      }
+    });
+    pinsRef.current = [];
+
+    console.log(`📍 ${pins.length}개 핀 생성 시작...`);
 
     window.handleMapPinClick = (pinId) => {
       const pin = pins.find(p => p.id === pinId);
-      if (pin && mapInstance.current) {
-        mapInstance.current.setCenter(new window.kakao.maps.LatLng(pin.lat, pin.lng));
-        mapInstance.current.setLevel(3);
-        navigate(`/post/${pin.id}`, { state: { post: pin.post } });
+      if (pin) {
+        console.log(`📌 핀 클릭: ${pin.title}`);
+        setSelectedPinId(pinId);
+        
+        if (mapInstance.current) {
+          mapInstance.current.setCenter(new window.kakao.maps.LatLng(pin.lat, pin.lng));
+          mapInstance.current.setLevel(2);
+          setTimeout(() => {
+            updateVisiblePins();
+            setShowSheet(true);
+          }, 300);
+        }
+        
+        setTimeout(() => {
+          navigate(`/post/${pin.id}`, { state: { post: pin.post } });
+        }, 500);
       }
     };
 
@@ -102,7 +165,7 @@ const MapScreen = () => {
       const el = document.createElement('div');
       el.innerHTML = `
         <button 
-          class="pin-btn relative w-12 h-12 border-2 border-white shadow-lg rounded-md overflow-hidden hover:scale-110 transition-all duration-200 cursor-pointer" 
+          class="pin-btn relative w-12 h-12 border-3 border-white shadow-lg rounded-full overflow-hidden hover:scale-110 transition-all duration-200 cursor-pointer" 
           style="z-index: ${i}" 
           onclick="window.handleMapPinClick('${pin.id}')"
         >
@@ -121,24 +184,64 @@ const MapScreen = () => {
       pinsRef.current.push({ id: pin.id, overlay, element: el.firstChild });
     });
 
-    updateVisiblePins();
-  }, [navigate]);
+    console.log(`✅ ${pins.length}개 핀 추가됨!`);
+  }, [navigate, updateVisiblePins]);
 
-  // 보이는 핀 업데이트
-  const updateVisiblePins = useCallback(() => {
-    if (!mapInstance.current || allPins.length === 0) return;
+  // 3. 데이터 로드 (세 번째!)
+  const loadAllData = useCallback(() => {
+    let posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    
+    // 2일 이상 된 게시물 필터링 ⭐
+    posts = filterRecentPosts(posts, 2);
+    console.log(`📊 지도화면 - 2일 이내 게시물: ${posts.length}개`);
 
-    const bounds = mapInstance.current.getBounds();
-    const sw = bounds.getSouthWest();
-    const ne = bounds.getNorthEast();
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📍 지도 핀 생성 시작... (총 ${posts.length}개 게시물)`);
+    
+    const pins = posts
+      .map((p, index) => {
+        // 우선순위: 업로드 시 저장된 GPS 좌표 > 지역명으로 찾은 좌표
+        const coords = p.coordinates || getCoordinatesByLocation(p.detailedLocation || p.location);
+        
+        if (!coords) {
+          console.log(`❌ [${index + 1}] 좌표 없음: "${p.location}"`);
+          return null;
+        }
+        
+        if (!p.images?.[0]) {
+          console.log(`❌ [${index + 1}] 이미지 없음: "${p.location}"`);
+          return null;
+        }
+        
+        console.log(`✅ [${index + 1}] "${p.location}" → (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}) ${p.coordinates ? '[GPS]' : '[변환]'}`);
+        
+        return {
+          id: p.id,
+          lat: coords.lat,
+          lng: coords.lng,
+          image: p.images[0],
+          title: p.detailedLocation || p.location,
+          categoryName: p.categoryName,
+          post: p
+        };
+      })
+      .filter(Boolean);
 
-    const visible = allPins.filter(p =>
-      p.lat >= sw.getLat() && p.lat <= ne.getLat() &&
-      p.lng >= sw.getLng() && p.lng <= ne.getLng()
-    );
-
-    setVisiblePins(visible);
-  }, [allPins]);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`✅ 핀 생성 완료: ${pins.length}개`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    setAllPins(pins);
+    
+    if (pins.length > 0 && mapInstance.current) {
+      createPins(pins);
+      // 핀 생성 후 보이는 핀 업데이트
+      setTimeout(() => {
+        updateVisiblePins();
+      }, 100);
+    } else if (pins.length === 0) {
+      console.log('📭 표시할 핀이 없습니다 (2일 이내 게시물 없음)');
+    }
+  }, [createPins, updateVisiblePins]);
 
   useEffect(() => {
     if (allPins.length > 0 && mapInstance.current) {
@@ -147,21 +250,57 @@ const MapScreen = () => {
     }
   }, [allPins, updateVisiblePins]);
 
+  // 한글 초성 추출
+  const getChosung = useCallback((str) => {
+    const CHOSUNG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+    let result = '';
+    
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i) - 44032;
+      if (code > -1 && code < 11172) {
+        result += CHOSUNG[Math.floor(code / 588)];
+      } else {
+        result += str.charAt(i);
+      }
+    }
+    return result;
+  }, []);
+
+  // 초성 매칭
+  const matchChosung = useCallback((text, search) => {
+    const textChosung = getChosung(text);
+    const searchChosung = getChosung(search);
+    return textChosung.includes(searchChosung) || text.includes(search);
+  }, [getChosung]);
+
   // 검색
   const handleSearchChange = (e) => {
     const q = e.target.value;
     setSearchQuery(q);
-    setSearchResults(q ? searchRegions(q) : []);
+    
+    if (q.trim()) {
+      // searchRegions가 이미 초성 검색 지원
+      const results = searchRegions(q);
+      console.log(`🔍 "${q}" 검색 결과: ${results.length}개`, results);
+      setSearchResults(results.slice(0, 10)); // 최대 10개
+    } else {
+      setSearchResults([]);
+    }
   };
 
   const selectRegion = useCallback((region) => {
+    console.log(`📍 지역 선택: ${region}`);
     const coords = getCoordinatesByLocation(region);
     if (coords && mapInstance.current) {
       mapInstance.current.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
       mapInstance.current.setLevel(4);
+      console.log(`✅ 지도 이동: ${region} (${coords.lat}, ${coords.lng})`);
+    } else {
+      console.log(`❌ 좌표를 찾을 수 없음: ${region}`);
     }
     setShowSearch(false);
     setSearchQuery('');
+    setSearchResults([]);
   }, []);
 
   // 새로고침
@@ -169,6 +308,63 @@ const MapScreen = () => {
     pinsRef.current.forEach(({ overlay }) => overlay.setMap(null));
     pinsRef.current = [];
     loadAllData();
+  };
+
+  // 더보기 화면에서 선택된 핀으로 이동
+  useEffect(() => {
+    if (location.state?.selectedPin && mapInstance.current) {
+      const { lat, lng, id, title } = location.state.selectedPin;
+      
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📍 선택된 핀으로 이동: ${title}`);
+      console.log(`   좌표: (${lat.toFixed(6)}, ${lng.toFixed(6)})`);
+      
+      // 지도 이동
+      const targetPos = new window.kakao.maps.LatLng(lat, lng);
+      mapInstance.current.setCenter(targetPos);
+      mapInstance.current.setLevel(2);
+      
+      // 선택된 핀 표시
+      setSelectedPinId(id);
+      
+      // 시트 표시
+      setShowSheet(true);
+      
+      // 주변 핀 업데이트
+      setTimeout(() => {
+        updateVisiblePins();
+        console.log(`✅ 지도 이동 완료!`);
+      }, 300);
+      
+      // state 초기화 (뒤로가기 시 중복 실행 방지)
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, updateVisiblePins]);
+
+  // 사진 리스트 마우스 드래그 시작
+  const handlePhotoListMouseDown = (e) => {
+    if (!photoListRef.current) return;
+    setIsPhotoListDragging(true);
+    setPhotoListStartX(e.pageX - photoListRef.current.offsetLeft);
+    setPhotoListScrollLeft(photoListRef.current.scrollLeft);
+    photoListRef.current.style.cursor = 'grabbing';
+  };
+
+  // 사진 리스트 마우스 드래그 이동
+  const handlePhotoListMouseMove = (e) => {
+    if (!isPhotoListDragging || !photoListRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - photoListRef.current.offsetLeft;
+    const walk = (x - photoListStartX) * 2; // 스크롤 속도
+    photoListRef.current.scrollLeft = photoListScrollLeft - walk;
+  };
+
+  // 사진 리스트 마우스 드래그 종료
+  const handlePhotoListMouseUp = () => {
+    setIsPhotoListDragging(false);
+    if (photoListRef.current) {
+      photoListRef.current.style.cursor = 'grab';
+    }
   };
 
   // 시트 드래그
@@ -320,7 +516,7 @@ const MapScreen = () => {
       <div style={{
         position: 'absolute',
         right: '16px',
-        bottom: showSheet ? '280px' : '100px',
+        bottom: showSheet ? '320px' : '140px',
         zIndex: 40,
         transition: 'bottom 0.3s'
       }}>
@@ -521,7 +717,7 @@ const MapScreen = () => {
         </div>
       )}
 
-      {/* 하단 시트 - 네비게이션 바로 위 (bottom: 80px + safe-area) */}
+      {/* 하단 시트 - 네비게이션 바로 위 */}
       {showSheet && (
         <div 
           ref={sheetRef}
@@ -529,13 +725,16 @@ const MapScreen = () => {
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
-            height: '200px',
+            bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
+            height: '240px',
             backgroundColor: 'white',
             borderTopLeftRadius: '24px',
             borderTopRightRadius: '24px',
             boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
-            zIndex: 40
+            zIndex: 40,
+            display: 'flex',
+            flexDirection: 'column',
+            paddingBottom: '12px'
           }}
         >
           {/* 드래그 핸들 */}
@@ -567,77 +766,182 @@ const MapScreen = () => {
               alignItems: 'center',
               justifyContent: 'space-between'
             }}>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
+              <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <span style={{ fontSize: '24px' }}>📍</span>
-                <span>주변 장소</span>
-              </h3>
-              <span style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#ff6b35'
-              }}>
-                {visiblePins.length}개
-              </span>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  margin: 0
+                }}>주변 장소</h3>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#ff6b35'
+                }}>
+                  {visiblePins.length}개
+                </span>
+              </div>
+              {visiblePins.length > 3 && (
+                <button
+                  onClick={() => navigate('/map/photos', { state: { visiblePins } })}
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: '#71717a',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span>더보기</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* 사진 리스트 */}
-          <div style={{ padding: '0 16px 16px 16px' }}>
-            {visiblePins.length === 0 ? (
+          {/* 사진 리스트 - 스크롤 가능 */}
+          {visiblePins.length === 0 ? (
+            <div style={{ 
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 16px 40px 16px'
+            }}>
               <div style={{
                 textAlign: 'center',
-                padding: '24px 16px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '12px'
+                gap: '4px'
               }}>
-                <span className="material-symbols-outlined text-4xl text-zinc-400">add_location</span>
+                <svg width="50" height="60" viewBox="0 0 50 60" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '8px' }}>
+                  {/* 하단 그림자 타원 */}
+                  <ellipse cx="25" cy="56" rx="8" ry="2.5" fill="#d4d4d8" opacity="0.3"/>
+                  {/* 핀 외곽선 (역 물방울 모양) */}
+                  <path 
+                    d="M 25 5 
+                       C 15 5, 8 12, 8 22 
+                       C 8 30, 15 40, 25 52
+                       C 35 40, 42 30, 42 22
+                       C 42 12, 35 5, 25 5 Z" 
+                    fill="none"
+                    stroke="#a1a1aa" 
+                    strokeWidth="2.5"
+                  />
+                  {/* 내부 원 */}
+                  <circle cx="25" cy="22" r="6" fill="none" stroke="#a1a1aa" strokeWidth="2.5"/>
+                </svg>
                 <p style={{
-                  fontSize: '14px',
+                  fontSize: '13px',
                   color: '#71717a',
-                  marginTop: '8px'
+                  fontWeight: '600',
+                  margin: '0 0 4px 0'
                 }}>이 지역에 장소가 없어요</p>
-                <p style={{
-                  fontSize: '12px',
-                  color: '#a1a1aa'
-                }}>첫 번째 사진을 공유해보세요!</p>
                 <button
                   onClick={() => navigate('/upload')}
-                  className="bg-primary text-white px-5 py-2 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2 text-sm"
+                  style={{
+                    backgroundColor: '#ff6b35',
+                    color: 'white',
+                    padding: '10px 20px',
+                    borderRadius: '9999px',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '2px',
+                    boxShadow: '0 4px 12px rgba(255, 107, 53, 0.3)'
+                  }}
                 >
-                  <span className="material-symbols-outlined text-sm">add_a_photo</span>
-                  첫 사진 올리기
+                  <span style={{ fontSize: '16px' }}>📷</span>
+                  <span>첫 사진 올리기</span>
                 </button>
               </div>
-            ) : (
-              <div style={{
-                display: 'flex',
-                gap: '12px',
-                overflowX: 'auto',
-                paddingBottom: '8px'
-              }}>
+            </div>
+          ) : (
+            <div style={{ 
+              padding: '0 16px 16px 16px',
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              minHeight: 0
+            }}>
+              <div 
+                ref={photoListRef}
+                onMouseDown={handlePhotoListMouseDown}
+                onMouseMove={handlePhotoListMouseMove}
+                onMouseUp={handlePhotoListMouseUp}
+                onMouseLeave={handlePhotoListMouseUp}
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  overflowX: 'auto',
+                  paddingTop: '4px',
+                  paddingBottom: '16px',
+                  scrollSnapType: 'x mandatory',
+                  scrollPaddingLeft: '16px',
+                  WebkitOverflowScrolling: 'touch',
+                  cursor: 'grab',
+                  userSelect: 'none'
+                }}
+                className="hide-scrollbar"
+              >
                 {visiblePins.map((pin) => (
                   <button 
                     key={pin.id}
-                    onClick={() => {
-                      if (mapInstance.current) {
-                        mapInstance.current.setCenter(new window.kakao.maps.LatLng(pin.lat, pin.lng));
-                        mapInstance.current.setLevel(3);
+                    onClick={(e) => {
+                      // 드래그 중에는 클릭 무시
+                      if (isPhotoListDragging) {
+                        e.preventDefault();
+                        return;
                       }
-                      navigate(`/post/${pin.id}`, { state: { post: pin.post } });
+                      
+                      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                      console.log(`📸 사진 클릭: ${pin.title}`);
+                      console.log(`  좌표: (${pin.lat}, ${pin.lng})`);
+                      
+                      if (mapInstance.current) {
+                        // 선택된 핀 표시
+                        setSelectedPinId(pin.id);
+                        
+                        // 정확한 위치로 지도 이동 & 줌인
+                        const targetPos = new window.kakao.maps.LatLng(pin.lat, pin.lng);
+                        mapInstance.current.setCenter(targetPos);
+                        mapInstance.current.setLevel(2);
+                        
+                        console.log(`✅ 지도 이동 완료!`);
+                        
+                        // 0.3초 후 보이는 핀 업데이트
+                        setTimeout(() => {
+                          updateVisiblePins();
+                          console.log(`🔄 주변 핀 업데이트 완료`);
+                        }, 300);
+                      }
+                      
+                      // 게시물 상세 화면으로 이동
+                      setTimeout(() => {
+                        navigate(`/post/${pin.id}`, { state: { post: pin.post } });
+                      }, 400);
                     }}
                     style={{
                       flexShrink: 0,
                       border: 'none',
                       background: 'none',
-                      padding: 0
+                      padding: 0,
+                      scrollSnapAlign: 'start',
+                      scrollSnapStop: 'always',
+                      pointerEvents: isPhotoListDragging ? 'none' : 'auto'
                     }}
                   >
                     <div style={{ width: '96px', position: 'relative' }}>
@@ -649,7 +953,11 @@ const MapScreen = () => {
                           aspectRatio: '1',
                           borderRadius: '12px',
                           objectFit: 'cover',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                          boxShadow: selectedPinId === pin.id 
+                            ? '0 0 0 3px #ff6b35, 0 4px 12px rgba(255, 107, 53, 0.4)' 
+                            : '0 2px 8px rgba(0,0,0,0.1)',
+                          transform: selectedPinId === pin.id ? 'scale(1.05)' : 'scale(1)',
+                          transition: 'all 0.3s ease'
                         }}
                       />
                       <div style={{
@@ -658,43 +966,28 @@ const MapScreen = () => {
                         background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)',
                         borderRadius: '12px'
                       }} />
-                      {pin.categoryName && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '6px',
-                          left: '6px'
-                        }}>
-                          <span style={{
-                            fontSize: '18px',
-                            fontWeight: 'bold',
-                            backgroundColor: 'rgba(255,255,255,0.95)',
-                            borderRadius: '9999px',
-                            width: '32px',
-                            height: '32px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                          }}>
-                            {pin.categoryName === '개화 상황' ? '🌸' : pin.categoryName === '맛집 정보' ? '🍜' : '🏞️'}
-                          </span>
-                        </div>
-                      )}
                     </div>
-                    <p style={{
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      marginTop: '8px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      width: '96px'
-                    }}>{pin.title}</p>
+                    <div style={{
+                      width: '96px',
+                      marginTop: '6px',
+                      marginBottom: '8px'
+                    }}>
+                      <p style={{
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: '#18181b',
+                        margin: 0,
+                        lineHeight: '1.3'
+                      }}>{pin.title}</p>
+                    </div>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -769,7 +1062,7 @@ const MapScreen = () => {
                     padding: '12px 16px 12px 40px',
                     border: 'none'
                   }}
-                  placeholder="지역을 검색하세요" 
+                  placeholder="지역 검색 (예: ㄱ, ㅅ, 서울, 부산)" 
                   autoFocus 
                 />
               </div>
@@ -810,7 +1103,8 @@ const MapScreen = () => {
                   padding: '48px 0'
                 }}>
                   <span className="material-symbols-outlined text-5xl text-zinc-300 mb-3">search_off</span>
-                  <p style={{ color: '#71717a' }}>검색 결과가 없어요</p>
+                  <p style={{ color: '#71717a', fontSize: '15px', fontWeight: '600' }}>"{searchQuery}" 검색 결과가 없어요</p>
+                  <p style={{ color: '#a1a1aa', fontSize: '13px', marginTop: '8px' }}>다른 지역명을 입력해보세요</p>
                 </div>
               ) : (
                 <div style={{
@@ -820,8 +1114,13 @@ const MapScreen = () => {
                   justifyContent: 'center',
                   padding: '48px 0'
                 }}>
-                  <span className="material-symbols-outlined text-5xl text-zinc-300 mb-3">search</span>
-                  <p style={{ color: '#71717a' }}>지역을 검색하세요</p>
+                  <span className="material-symbols-outlined text-5xl text-zinc-300 mb-3">travel_explore</span>
+                  <p style={{ color: '#71717a', fontSize: '15px', fontWeight: '600', marginBottom: '8px' }}>지역을 검색하세요</p>
+                  <div style={{ textAlign: 'center', color: '#a1a1aa', fontSize: '13px' }}>
+                    <p>💡 초성 검색 가능</p>
+                    <p style={{ marginTop: '4px' }}>예: ㄱ → 강릉, 경주</p>
+                    <p style={{ marginTop: '4px' }}>예: ㅅ → 서울, 수원</p>
+                  </div>
                 </div>
               )}
             </div>

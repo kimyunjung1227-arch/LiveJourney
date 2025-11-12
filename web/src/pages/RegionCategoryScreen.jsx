@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
+import { filterRecentPosts } from '../utils/timeUtils';
 
 const RegionCategoryScreen = () => {
   const navigate = useNavigate();
@@ -59,7 +60,11 @@ const RegionCategoryScreen = () => {
 
   // 지역 데이터 로드 (useCallback)
   const loadRegionData = useCallback(() => {
-    const allPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    let allPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    
+    // 2일 이상 된 게시물 필터링 ⭐
+    allPosts = filterRecentPosts(allPosts, 2);
+    console.log(`📊 ${regionName} - 2일 이내 게시물: ${allPosts.length}개`);
     
     const regionPosts = allPosts.filter(
       post => post.location?.includes(regionName) || post.location === regionName
@@ -256,7 +261,7 @@ const RegionCategoryScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <div className="screen-header flex-shrink-0 flex flex-col bg-background-light dark:bg-background-dark border-b border-zinc-200 dark:border-zinc-800">
+        <div className="screen-header flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}

@@ -188,39 +188,105 @@ const detectCategory = (keywords, location, note, brightness) => {
   return { category: 'scenic', categoryName: '추천 장소', icon: '🏞️' };
 };
 
-// 메인 AI 분석 함수 (초고속 버전)
+// 이미지 색상 분석 (고급)
+const analyzeImageColors = async (imageFile) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // 50x50 크기로 샘플링 (더 정확한 분석)
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          
+          let r = 0, g = 0, b = 0;
+          let brightness = 0;
+          const pixels = data.length / 4;
+          
+          // 모든 픽셀 분석
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
+          }
+          
+          r = Math.floor(r / pixels);
+          g = Math.floor(g / pixels);
+          b = Math.floor(b / pixels);
+          brightness = brightness / pixels;
+          
+          // 색상 특징 분석
+          const isGreen = g > r && g > b && g > 100; // 초록색 우세 (자연)
+          const isBlue = b > r && b > g && b > 100; // 파란색 우세 (하늘, 바다)
+          const isRed = r > g && r > b && r > 100; // 빨간색 우세 (단풍, 음식)
+          const isYellow = r > 150 && g > 150 && b < 100; // 노란색 (가을, 음식)
+          
+          resolve({
+            brightness: brightness / 255,
+            isDark: brightness < 80,
+            isBright: brightness > 180,
+            dominantColor: { r, g, b },
+            isGreen,
+            isBlue,
+            isRed,
+            isYellow
+          });
+        } catch (error) {
+          resolve({ brightness: 0.5, isDark: false, isBright: false });
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(imageFile);
+  });
+};
+
+// 메인 AI 분석 함수 (정교한 버전)
 export const analyzeImageForTags = async (imageFile, location = '', existingNote = '') => {
   try {
     console.log('🤖 AI 이미지 분석 시작...');
+    console.log('  📍 위치:', location);
+    console.log('  📝 노트:', existingNote);
     
     const keywords = new Set();
     
     // 병렬 처리로 속도 향상
-    const [brightness, exifData] = await Promise.all([
-      analyzeImageBrightness(imageFile),
+    const [colorAnalysis, exifData] = await Promise.all([
+      analyzeImageColors(imageFile),
       readExifData(imageFile)
     ]);
     
-    // 1. 밝기 분석
-    if (brightness.isDark) {
-      keywords.add('야경');
-    } else if (brightness.isBright) {
-      keywords.add('화창한');
+    console.log('🎨 색상 분석 결과:');
+    console.log('  RGB:', colorAnalysis.dominantColor);
+    console.log('  밝기:', (colorAnalysis.brightness * 100).toFixed(1) + '%');
+    console.log('  초록색:', colorAnalysis.isGreen);
+    console.log('  파란색:', colorAnalysis.isBlue);
+    console.log('  빨간색:', colorAnalysis.isRed);
+    console.log('  노란색:', colorAnalysis.isYellow);
+    console.log('  어두움:', colorAnalysis.isDark);
+    console.log('  밝음:', colorAnalysis.isBright);
+    
+    // 우선순위 1: 위치 기반 키워드 (가장 중요!)
+    const locationKeywords = generateLocationKeywords(location);
+    if (locationKeywords.length > 0) {
+      locationKeywords.slice(0, 4).forEach(kw => keywords.add(kw));
     }
     
-    // 2. 위치 기반 키워드 (가장 중요)
-    const locationKeywords = generateLocationKeywords(location);
-    locationKeywords.slice(0, 5).forEach(kw => keywords.add(kw));
-    
-    // 3. 계절 키워드
-    const seasonKeywords = detectSeason();
-    seasonKeywords.slice(0, 2).forEach(kw => keywords.add(kw));
-    
-    // 4. 노트 내용 빠른 분석
-    if (existingNote) {
+    // 우선순위 2: 노트 내용 분석 (사용자가 직접 입력한 내용)
+    if (existingNote && existingNote.trim().length > 0) {
       Object.values(koreanTravelKeywords).forEach(categoryKeywords => {
         if (Array.isArray(categoryKeywords)) {
-          categoryKeywords.slice(0, 3).forEach(keyword => {
+          categoryKeywords.forEach(keyword => {
             if (existingNote.includes(keyword)) {
               keywords.add(keyword);
             }
@@ -229,20 +295,88 @@ export const analyzeImageForTags = async (imageFile, location = '', existingNote
       });
     }
     
-    // 5. 기본 키워드
-    keywords.add('여행');
-    keywords.add('풍경');
+    // 우선순위 3: 색상 분석 (실제 이미지 특성)
+    // 색상이 명확할 때만 추가 (임계값 강화)
+    const { r, g, b } = colorAnalysis.dominantColor || { r: 128, g: 128, b: 128 };
+    const colorDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(b - r));
     
-    // 6. AI 카테고리 자동 분류 ⭐
-    const categoryResult = detectCategory(keywords, location, existingNote, brightness);
+    // 색상 차이가 뚜렷한 경우만 (30 이상)
+    if (colorDiff > 30) {
+      if (colorAnalysis.isGreen && g > 120) {
+        keywords.add('자연');
+        keywords.add('숲');
+      }
+      if (colorAnalysis.isBlue && b > 120) {
+        keywords.add('하늘');
+        if (location.includes('바다') || location.includes('해')) {
+          keywords.add('바다');
+        }
+      }
+      if (colorAnalysis.isRed && r > 150) {
+        // 빨간색 + 가을철만 단풍 추천
+        const month = new Date().getMonth() + 1;
+        if (month >= 9 && month <= 11) {
+          keywords.add('단풍');
+          keywords.add('가을');
+        } else {
+          keywords.add('활기찬');
+        }
+      }
+      if (colorAnalysis.isYellow && r > 150 && g > 150) {
+        keywords.add('따뜻한');
+      }
+    }
     
-    // 7. 중복 제거 및 배열 변환 (최대 8개로 제한)
+    // 우선순위 4: 밝기 분석
+    if (colorAnalysis.isDark) {
+      keywords.add('야경');
+    } else if (colorAnalysis.isBright) {
+      keywords.add('맑은');
+    }
+    
+    // 우선순위 5: 계절 키워드 (위치/노트에 관련 내용이 있을 때만)
+    const month = new Date().getMonth() + 1;
+    const allText = `${location} ${existingNote}`.toLowerCase();
+    
+    if ((month >= 3 && month <= 5) && (allText.includes('꽃') || allText.includes('벚꽃'))) {
+      keywords.add('봄');
+    } else if ((month >= 6 && month <= 8) && allText.includes('바다')) {
+      keywords.add('여름');
+    } else if ((month >= 9 && month <= 11) && (allText.includes('단풍') || allText.includes('가을'))) {
+      keywords.add('가을');
+    } else if ((month >= 12 || month <= 2) && (allText.includes('눈') || allText.includes('겨울'))) {
+      keywords.add('겨울');
+    }
+    
+    // 우선순위 6: 파일명 분석 (의미있는 경우만)
+    const filenameKeywords = extractKeywordsFromFilename(imageFile.name);
+    if (filenameKeywords.length > 0 && !filenameKeywords.some(k => k.includes('img') || k.includes('photo'))) {
+      filenameKeywords.slice(0, 2).forEach(kw => keywords.add(kw));
+    }
+    
+    // 최소 키워드가 너무 적으면 기본값 추가
+    if (keywords.size < 3) {
+      keywords.add('여행');
+      if (location) {
+        keywords.add('추억');
+      }
+    }
+    
+    // 8. AI 카테고리 자동 분류 ⭐
+    const categoryResult = detectCategory(keywords, location, existingNote, colorAnalysis);
+    
+    // 9. 중복 제거 및 배열 변환 (최대 8개로 제한)
     const finalTags = Array.from(keywords)
       .filter(tag => tag && tag.length >= 2)
       .slice(0, 8);
     
-    console.log('✅ AI 분석 완료 (0.3초):', finalTags);
-    console.log('🎯 자동 카테고리:', categoryResult);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✅ AI 분석 완료!');
+    console.log('📍 위치:', location || '없음');
+    console.log('📝 노트:', existingNote || '없음');
+    console.log('🏷️ 추천 태그 (' + finalTags.length + '개):', finalTags);
+    console.log('🎯 자동 카테고리:', categoryResult.categoryName);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     return {
       success: true,
@@ -250,7 +384,8 @@ export const analyzeImageForTags = async (imageFile, location = '', existingNote
       category: categoryResult.category,
       categoryName: categoryResult.categoryName,
       categoryIcon: categoryResult.icon,
-      brightness: brightness.brightness,
+      brightness: colorAnalysis.brightness,
+      colorAnalysis,
       metadata: exifData
     };
     

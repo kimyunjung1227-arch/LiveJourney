@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { createPost } from '../api/posts';
@@ -36,6 +36,7 @@ const UploadScreen = () => {
   const [loadingAITags, setLoadingAITags] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [earnedBadge, setEarnedBadge] = useState(null);
+  const reanalysisTimerRef = useRef(null);
 
   // 현재 위치 자동 감지
   const getCurrentLocation = useCallback(async () => {
@@ -127,16 +128,20 @@ const UploadScreen = () => {
   }, []);
 
   // AI 이미지 분석 및 해시태그 자동 생성
-  const analyzeImageAndGenerateTags = useCallback(async (file) => {
+  const analyzeImageAndGenerateTags = useCallback(async (file, location = '', note = '') => {
     setLoadingAITags(true);
     try {
-      console.log('🤖 AI 태그 분석 시작...');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🤖 AI 이미지 분석 시작...');
+      console.log('📸 파일:', file.name);
+      console.log('📍 위치:', location || '없음');
+      console.log('📝 노트:', note || '없음');
       
       // 로컬 AI 분석기로 이미지 분석
       const analysisResult = await analyzeImageForTags(
         file, 
-        formData.location || '', 
-        formData.note || ''
+        location, 
+        note
       );
       
       if (analysisResult.success) {
@@ -154,11 +159,8 @@ const UploadScreen = () => {
           ...prev,
           aiCategory: analysisResult.category,
           aiCategoryName: analysisResult.categoryName,
-          aiCategoryIcon: analysisResult.categoryIcon,
-          // 첫 번째 태그 자동 추가
-          tags: prev.tags.length === 0 && hashtagged.length > 0 
-            ? [hashtagged[0].replace('#', '')] 
-            : prev.tags
+          aiCategoryIcon: analysisResult.categoryIcon
+          // 태그는 자동으로 추가하지 않음! 사용자가 선택해야 함 ✅
         }));
         
       } else {
@@ -227,10 +229,39 @@ const UploadScreen = () => {
       
       // 2. AI 이미지 분석 및 해시태그 생성
       if (validFiles[0]) {
-        analyzeImageAndGenerateTags(validFiles[0]);
+        analyzeImageAndGenerateTags(validFiles[0], formData.location, formData.note);
       }
     }
-  }, [formData.images.length, getCurrentLocation, analyzeImageAndGenerateTags]);
+  }, [formData.images.length, formData.location, formData.note, getCurrentLocation, analyzeImageAndGenerateTags]);
+
+  // 위치/노트 변경 시 자동 재분석 (디바운스 1초)
+  useEffect(() => {
+    // 이미지가 있고, 위치나 노트가 있을 때만
+    if (formData.imageFiles.length === 0) return;
+    
+    // 이전 타이머 취소
+    if (reanalysisTimerRef.current) {
+      clearTimeout(reanalysisTimerRef.current);
+    }
+    
+    // 1초 후 재분석
+    reanalysisTimerRef.current = setTimeout(() => {
+      if (formData.location || formData.note) {
+        console.log('🔄 위치/노트 변경 감지 - 재분석 시작');
+        analyzeImageAndGenerateTags(
+          formData.imageFiles[0], 
+          formData.location, 
+          formData.note
+        );
+      }
+    }, 1000);
+    
+    return () => {
+      if (reanalysisTimerRef.current) {
+        clearTimeout(reanalysisTimerRef.current);
+      }
+    };
+  }, [formData.location, formData.note, formData.imageFiles, analyzeImageAndGenerateTags]);
 
   // 사진 옵션 선택 (useCallback)
   const handlePhotoOptionSelect = useCallback((option) => {
@@ -529,7 +560,7 @@ const UploadScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark">
       <div className="screen-content">
-        <header className="screen-header flex h-16 items-center border-b border-subtle-light/50 dark:border-subtle-dark/50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm px-4">
+        <header className="screen-header flex h-16 items-center border-b border-subtle-light/50 dark:border-subtle-dark/50 bg-white dark:bg-gray-900 shadow-sm px-4">
           <button 
             onClick={() => navigate(-1)}
             className="flex size-10 shrink-0 items-center justify-center rounded-full text-text-light dark:text-text-dark"
@@ -591,7 +622,7 @@ const UploadScreen = () => {
                 <div className="flex w-full flex-1 items-stretch gap-2">
                   <input
                     className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg border border-subtle-light dark:border-subtle-dark bg-background-light dark:bg-background-dark focus:border-primary focus:ring-0 h-14 p-4 text-base font-normal placeholder:text-placeholder-light dark:placeholder:text-placeholder-dark"
-                    placeholder="어디에서 찍은 사진인가요?"
+                    placeholder="어디에서 찍은 사진인가요? (예: 서울 남산, 부산 해운대)"
                     value={formData.location}
                     onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
                   />
@@ -600,6 +631,7 @@ const UploadScreen = () => {
                     onClick={getCurrentLocation}
                     disabled={loadingLocation}
                     className="flex items-center justify-center rounded-lg border border-subtle-light dark:border-subtle-dark bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 px-4 text-primary transition-colors disabled:opacity-50"
+                    title="내 위치 자동 감지"
                   >
                     <span className="material-symbols-outlined">my_location</span>
                   </button>
@@ -667,11 +699,23 @@ const UploadScreen = () => {
               {/* AI 추천 태그 */}
               {!loadingAITags && autoTags.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-base">auto_awesome</span>
-                    <span className="font-semibold">AI 추천 태그</span>
-                    <span className="text-xs text-zinc-500">탭해서 추가</span>
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-base">auto_awesome</span>
+                      <span className="font-semibold">🤖 AI 추천 태그</span>
+                      <span className="text-xs text-zinc-500">(탭하면 추가됨)</span>
+                    </p>
+                    {formData.imageFiles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => analyzeImageAndGenerateTags(formData.imageFiles[0], formData.location, formData.note)}
+                        className="text-xs text-primary hover:text-primary/80 font-semibold flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>refresh</span>
+                        재분석
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {autoTags.map((tag) => (
                       <button

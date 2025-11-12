@@ -5,6 +5,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import { getUnreadCount } from '../utils/notifications';
 import { getEarnedBadges } from '../utils/badgeSystem';
 import { getUserLevel } from '../utils/levelSystem';
+import { filterRecentPosts } from '../utils/timeUtils';
 
 const ProfileScreen = () => {
   const navigate = useNavigate();
@@ -42,13 +43,17 @@ const ProfileScreen = () => {
     console.log('📊 레벨 정보:', userLevelInfo);
 
     // 내가 업로드한 게시물 로드
-    const uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    let uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    
+    // 2일 이상 된 게시물 필터링 ⭐
+    uploadedPosts = filterRecentPosts(uploadedPosts, 2);
+    
     const userId = savedUser.id;
     const userPosts = uploadedPosts.filter(post => post.userId === userId);
     
     console.log('📊 프로필 화면 - 내 게시물 로드');
-    console.log('  전체 게시물:', uploadedPosts.length);
-    console.log('  내 게시물:', userPosts.length);
+    console.log('  전체 게시물 (2일 이내):', uploadedPosts.length);
+    console.log('  내 게시물 (2일 이내):', userPosts.length);
     console.log('  사용자 ID:', userId);
     
     setMyPosts(userPosts);
@@ -63,9 +68,11 @@ const ProfileScreen = () => {
 
     // 게시물 업데이트 이벤트 리스너
     const handlePostsUpdate = () => {
-      const updatedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+      let updatedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+      // 2일 필터링
+      updatedPosts = filterRecentPosts(updatedPosts, 2);
       const updatedUserPosts = updatedPosts.filter(post => post.userId === userId);
-      console.log('🔄 게시물 업데이트:', updatedUserPosts.length);
+      console.log('🔄 게시물 업데이트 (2일 이내):', updatedUserPosts.length);
       setMyPosts(updatedUserPosts);
     };
 

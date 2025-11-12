@@ -357,7 +357,7 @@ const PostDetailScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <div className="screen-header flex items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm p-4 pb-2 justify-between">
+        <div className="screen-header flex items-center bg-white dark:bg-gray-900 p-4 pb-2 justify-between shadow-sm">
           <button 
             onClick={() => navigate(-1)}
             className="text-[#181410] dark:text-white flex size-12 shrink-0 items-center"

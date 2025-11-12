@@ -4,7 +4,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import { seedMockData } from '../utils/mockUploadData';
 import { getPosts } from '../api/posts';
 import { getUnreadCount } from '../utils/notifications';
-import { getTimeAgo, updatePostTimes } from '../utils/timeUtils';
+import { getTimeAgo, updatePostTimes, filterRecentPosts } from '../utils/timeUtils';
 import { getUserDailyTitle, getTitleEffect } from '../utils/dailyTitleSystem';
 
 const MainScreen = () => {
@@ -87,9 +87,13 @@ const MainScreen = () => {
   const loadMockData = useCallback(() => {
     let posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
+    // 2일 이상 된 게시물 필터링 ⭐
+    posts = filterRecentPosts(posts, 2);
+    console.log(`📊 전체 게시물 → 2일 이내 게시물: ${posts.length}개`);
+    
     // Mock 데이터 생성 비활성화 - 프로덕션 모드
     if (posts.length === 0) {
-      console.log('📭 아직 업로드된 사진이 없습니다 - 실제 사용자 업로드 대기 중');
+      console.log('📭 최근 2일 이내 업로드된 사진이 없습니다');
       setRealtimeData([]);
       setCrowdedData([]);
       setRecommendedData([]);
@@ -419,7 +423,7 @@ const MainScreen = () => {
       {/* 메인 스크롤 영역 */}
       <div className="screen-content">
         {/* 상단 헤더 - sticky */}
-        <div className="screen-header bg-background-light dark:bg-background-dark border-b border-border-light/50 dark:border-border-dark/50">
+        <div className="screen-header bg-white dark:bg-gray-900 border-b border-border-light/50 dark:border-border-dark/50 shadow-sm">
         <div className="flex items-center px-4 py-4 justify-between">
           <h2 className="text-xl font-bold leading-tight tracking-[-0.015em]">LiveJourney</h2>
           <button 
@@ -508,7 +512,12 @@ const MainScreen = () => {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
               className="flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth"
-              style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+              style={{ 
+                scrollBehavior: 'smooth', 
+                WebkitOverflowScrolling: 'touch',
+                scrollSnapType: 'x mandatory',
+                scrollPaddingLeft: '16px'
+              }}
             >
               <div className="flex items-stretch px-4 gap-3 pb-2">
                 {realtimeData.map((item) => {
@@ -520,6 +529,7 @@ const MainScreen = () => {
                     <div 
                       key={item.id} 
                       className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
+                      style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                       onClick={() => handleItemClickWithDragCheck(item)}
                     >
                       <div 
@@ -667,13 +677,19 @@ const MainScreen = () => {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
               className="flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth"
-              style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+              style={{ 
+                scrollBehavior: 'smooth', 
+                WebkitOverflowScrolling: 'touch',
+                scrollSnapType: 'x mandatory',
+                scrollPaddingLeft: '16px'
+              }}
             >
               <div className="flex items-stretch px-4 gap-3 pb-2">
                 {crowdedData.map((item) => (
                 <div 
                   key={item.id} 
                   className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
+                  style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                   onClick={() => handleItemClickWithDragCheck(item)}
                 >
                   <div 
@@ -824,13 +840,19 @@ const MainScreen = () => {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
               className="flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth"
-              style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+              style={{ 
+                scrollBehavior: 'smooth', 
+                WebkitOverflowScrolling: 'touch',
+                scrollSnapType: 'x mandatory',
+                scrollPaddingLeft: '16px'
+              }}
             >
               <div className="flex items-stretch px-4 gap-3 pb-2">
                 {(filteredRecommendedData.length > 0 ? filteredRecommendedData : recommendedData.filter(item => item.category === selectedCategory)).map((item) => (
                 <div 
                   key={item.id} 
                   className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
+                  style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                   onClick={() => handleItemClickWithDragCheck(item)}
                 >
                   <div 

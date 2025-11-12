@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
+import { filterRecentPosts } from '../utils/timeUtils';
 
 const DetailScreen = () => {
   const navigate = useNavigate();
@@ -98,19 +99,16 @@ const DetailScreen = () => {
   const loadAllData = useCallback(() => {
     let posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
+    // 2일 이상 된 게시물 필터링 ⭐
+    posts = filterRecentPosts(posts, 2);
+    console.log(`📊 상세화면 - 2일 이내 게시물: ${posts.length}개`);
+    
     if (posts.length === 0) {
       setRealtimeData([]);
       setCrowdedData([]);
       setRecommendedData([]);
       return;
     }
-    
-    // 최신순 정렬
-    posts = posts.sort((a, b) => {
-      const timeA = timeToMinutes(a.timeLabel || '방금');
-      const timeB = timeToMinutes(b.timeLabel || '방금');
-      return timeA - timeB;
-    });
     
     const realtimeFormatted = posts.slice(0, 100).map((post) => ({
       id: `realtime-${post.id}`,
@@ -280,7 +278,7 @@ const DetailScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <div className="screen-header flex-shrink-0 flex flex-col bg-background-light dark:bg-background-dark border-b border-zinc-200 dark:border-zinc-800">
+        <div className="screen-header flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}

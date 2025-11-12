@@ -17,6 +17,7 @@ import RegionDetailScreen from './pages/RegionDetailScreen'
 import RegionCategoryScreen from './pages/RegionCategoryScreen'
 import UploadScreen from './pages/UploadScreen'
 import MapScreen from './pages/MapScreen'
+import MapPhotoGridScreen from './pages/MapPhotoGridScreen'
 import ProfileScreen from './pages/ProfileScreen'
 import EditProfileScreen from './pages/EditProfileScreen'
 import PersonalInfoEditScreen from './pages/PersonalInfoEditScreen'
@@ -60,6 +61,7 @@ function App() {
               <Route path="/region/:regionName/category" element={<ProtectedRoute><RegionCategoryScreen /></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><UploadScreen /></ProtectedRoute>} />
               <Route path="/map" element={<ProtectedRoute><MapScreen /></ProtectedRoute>} />
+              <Route path="/map/photos" element={<ProtectedRoute><MapPhotoGridScreen /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
               <Route path="/profile/edit" element={<ProtectedRoute><EditProfileScreen /></ProtectedRoute>} />
               <Route path="/personal-info-edit" element={<ProtectedRoute><PersonalInfoEditScreen /></ProtectedRoute>} />

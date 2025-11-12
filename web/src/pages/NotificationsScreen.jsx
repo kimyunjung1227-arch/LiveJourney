@@ -86,7 +86,7 @@ const NotificationsScreen = () => {
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
         {/* 헤더 */}
-        <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark px-4">
+        <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-white dark:border-border-dark dark:bg-gray-900 px-4 shadow-sm">
         <button
           onClick={() => navigate('/main')}
           className="flex size-12 shrink-0 items-center justify-start cursor-pointer text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"

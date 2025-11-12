@@ -124,11 +124,58 @@ export const sortByTime = (posts) => {
   });
 };
 
+// 2일(48시간) 이상 지났는지 확인
+export const isOlderThanTwoDays = (timestamp) => {
+  if (!timestamp) return false;
+  
+  const now = new Date();
+  const postDate = new Date(timestamp);
+  const diffHours = (now - postDate) / (1000 * 60 * 60);
+  
+  return diffHours >= 48; // 48시간 = 2일
+};
+
+// 게시물을 최신순으로 정렬하고 2일 이상 된 것은 필터링
+export const filterRecentPosts = (posts, maxDays = 2) => {
+  if (!posts || posts.length === 0) return [];
+  
+  const maxHours = maxDays * 24;
+  const now = new Date();
+  
+  return posts
+    .filter(post => {
+      const timestamp = post.timestamp || post.createdAt;
+      if (!timestamp) return true; // 시간 정보 없으면 유지
+      
+      const postDate = new Date(timestamp);
+      const diffHours = (now - postDate) / (1000 * 60 * 60);
+      
+      return diffHours < maxHours;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.timestamp || a.createdAt || 0);
+      const timeB = new Date(b.timestamp || b.createdAt || 0);
+      return timeB - timeA; // 최신순
+    });
+};
+
+// 게시물 나이(시간) 계산 (시간 단위)
+export const getPostAgeInHours = (timestamp) => {
+  if (!timestamp) return 0;
+  
+  const now = new Date();
+  const postDate = new Date(timestamp);
+  return (now - postDate) / (1000 * 60 * 60);
+};
+
 export default {
   getTimeAgo,
   updatePostTimes,
   getCurrentTimestamp,
   timestampToNumber,
-  sortByTime
+  sortByTime,
+  isOlderThanTwoDays,
+  filterRecentPosts,
+  getPostAgeInHours
 };
 

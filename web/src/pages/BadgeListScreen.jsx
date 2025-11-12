@@ -371,7 +371,7 @@ const BadgeListScreen = () => {
     <div className="screen-layout bg-white dark:bg-background-dark">
       <div className="screen-content">
         {/* 헤더 */}
-        <header className="screen-header bg-white/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center p-4 pb-2 justify-between">
+        <header className="screen-header bg-white dark:bg-gray-900 flex items-center p-4 pb-2 justify-between shadow-sm">
           <button 
             onClick={() => navigate('/profile')}
             aria-label="Back" 

@@ -273,7 +273,25 @@ export const getCoordinatesByLocation = (locationName) => {
 };
 
 /**
- * 지역명 검색 (자동완성용)
+ * 한글 초성 추출
+ */
+const getChosung = (str) => {
+  const CHOSUNG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  let result = '';
+  
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i) - 44032;
+    if (code > -1 && code < 11172) {
+      result += CHOSUNG[Math.floor(code / 588)];
+    } else {
+      result += str.charAt(i);
+    }
+  }
+  return result;
+};
+
+/**
+ * 지역명 검색 (자동완성용 - 초성 검색 지원)
  * @param {string} query - 검색어
  * @returns {Array} 매칭되는 지역 목록
  */
@@ -281,10 +299,22 @@ export const searchRegions = (query) => {
   if (!query) return [];
   
   const lowerQuery = query.toLowerCase();
+  const queryChosung = getChosung(query);
   
   return Object.keys(regionCoordinates)
-    .filter(region => region.includes(query) || region.toLowerCase().includes(lowerQuery))
-    .slice(0, 10); // 최대 10개
+    .filter(region => {
+      const lowerRegion = region.toLowerCase();
+      const regionChosung = getChosung(region);
+      
+      // 1. 일반 텍스트 매칭
+      const textMatch = region.includes(query) || lowerRegion.includes(lowerQuery);
+      
+      // 2. 초성 매칭
+      const chosungMatch = regionChosung.includes(queryChosung) || regionChosung.startsWith(queryChosung);
+      
+      return textMatch || chosungMatch;
+    })
+    .slice(0, 20); // 최대 20개
 };
 
 export default {
@@ -292,6 +322,7 @@ export default {
   getCoordinatesByLocation,
   searchRegions
 };
+
 
 
 
