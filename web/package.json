@@ -8,6 +8,7 @@
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
     "@capacitor/ios": "^7.4.4",
+    "@capacitor/status-bar": "^7.0.3",
     "axios": "^1.6.2",
     "leaflet": "^1.9.4",
     "react": "^18.2.0",

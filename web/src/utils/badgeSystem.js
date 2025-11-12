@@ -1,13 +1,6 @@
 /**
- * 뱃지 시스템 - 난이도별 포인트 지급
+ * 뱃지 시스템 - 난이도별 뱃지 관리
  */
-
-// 뱃지 난이도별 포인트
-const BADGE_POINTS = {
-  '하': 100,   // 쉬운 뱃지
-  '중': 300,   // 중간 난이도 뱃지
-  '상': 500    // 어려운 뱃지
-};
 
 // 뱃지 목록 (난이도 포함)
 export const BADGES = {
@@ -18,7 +11,8 @@ export const BADGES = {
     icon: '🎯',
     description: '첫 번째 여행 사진을 업로드했습니다!',
     condition: (stats) => stats.totalPosts >= 1,
-    points: BADGE_POINTS['하']
+    target: 1,
+    getProgress: (stats) => Math.min(100, (stats.totalPosts / 1) * 100)
   },
   
   '여행 입문자': {
@@ -27,7 +21,8 @@ export const BADGES = {
     icon: '🌱',
     description: '3개의 여행 기록을 남겼습니다.',
     condition: (stats) => stats.totalPosts >= 3,
-    points: BADGE_POINTS['하']
+    target: 3,
+    getProgress: (stats) => Math.min(100, (stats.totalPosts / 3) * 100)
   },
   
   '첫 좋아요': {
@@ -36,7 +31,8 @@ export const BADGES = {
     icon: '❤️',
     description: '첫 번째 좋아요를 받았습니다!',
     condition: (stats) => stats.totalLikes >= 1,
-    points: BADGE_POINTS['하']
+    target: 1,
+    getProgress: (stats) => Math.min(100, (stats.totalLikes / 1) * 100)
   },
   
   // === 활동 뱃지 (중) ===
@@ -46,7 +42,8 @@ export const BADGES = {
     icon: '🧭',
     description: '10개의 여행 기록을 남긴 진정한 탐험가!',
     condition: (stats) => stats.totalPosts >= 10,
-    points: BADGE_POINTS['중']
+    target: 10,
+    getProgress: (stats) => Math.min(100, (stats.totalPosts / 10) * 100)
   },
   
   '사진 수집가': {
@@ -55,7 +52,8 @@ export const BADGES = {
     icon: '📸',
     description: '25개의 여행 사진을 업로드했습니다.',
     condition: (stats) => stats.totalPosts >= 25,
-    points: BADGE_POINTS['중']
+    target: 25,
+    getProgress: (stats) => Math.min(100, (stats.totalPosts / 25) * 100)
   },
   
   '인기 여행자': {
@@ -64,7 +62,8 @@ export const BADGES = {
     icon: '⭐',
     description: '50개의 좋아요를 받았습니다!',
     condition: (stats) => stats.totalLikes >= 50,
-    points: BADGE_POINTS['중']
+    target: 50,
+    getProgress: (stats) => Math.min(100, (stats.totalLikes / 50) * 100)
   },
   
   '지역 전문가': {
@@ -73,7 +72,8 @@ export const BADGES = {
     icon: '🗺️',
     description: '5개 이상의 지역을 방문했습니다.',
     condition: (stats) => stats.visitedRegions >= 5,
-    points: BADGE_POINTS['중']
+    target: 5,
+    getProgress: (stats) => Math.min(100, (stats.visitedRegions / 5) * 100)
   },
   
   // === 전문가 뱃지 (상) ===
@@ -83,7 +83,8 @@ export const BADGES = {
     icon: '🏆',
     description: '50개의 여행 기록을 남긴 마스터!',
     condition: (stats) => stats.totalPosts >= 50,
-    points: BADGE_POINTS['상']
+    target: 50,
+    getProgress: (stats) => Math.min(100, (stats.totalPosts / 50) * 100)
   },
   
   '전국 정복자': {
@@ -92,7 +93,8 @@ export const BADGES = {
     icon: '🌏',
     description: '10개 이상의 지역을 모두 방문했습니다!',
     condition: (stats) => stats.visitedRegions >= 10,
-    points: BADGE_POINTS['상']
+    target: 10,
+    getProgress: (stats) => Math.min(100, (stats.visitedRegions / 10) * 100)
   },
   
   '슈퍼스타': {
@@ -101,7 +103,8 @@ export const BADGES = {
     icon: '💫',
     description: '100개 이상의 좋아요를 받은 슈퍼스타!',
     condition: (stats) => stats.totalLikes >= 100,
-    points: BADGE_POINTS['상']
+    target: 100,
+    getProgress: (stats) => Math.min(100, (stats.totalLikes / 100) * 100)
   },
   
   '여행 레전드': {
@@ -110,7 +113,8 @@ export const BADGES = {
     icon: '👑',
     description: '100개의 여행 기록을 남긴 전설!',
     condition: (stats) => stats.totalPosts >= 100,
-    points: BADGE_POINTS['상']
+    target: 100,
+    getProgress: (stats) => Math.min(100, (stats.totalPosts / 100) * 100)
   },
   
   // === 지역별 뱃지 (중) ===
@@ -119,8 +123,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🏙️',
     description: '서울의 주요 명소를 모두 방문했습니다!',
-    condition: (stats) => stats.regionPosts['서울'] >= 5,
-    points: BADGE_POINTS['중'],
+    condition: (stats) => (stats.regionPosts['서울'] || 0) >= 5,
+    target: 5,
+    getProgress: (stats) => Math.min(100, ((stats.regionPosts['서울'] || 0) / 5) * 100),
     region: '서울'
   },
   
@@ -129,8 +134,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🌊',
     description: '부산의 주요 명소를 모두 방문했습니다!',
-    condition: (stats) => stats.regionPosts['부산'] >= 5,
-    points: BADGE_POINTS['중'],
+    condition: (stats) => (stats.regionPosts['부산'] || 0) >= 5,
+    target: 5,
+    getProgress: (stats) => Math.min(100, ((stats.regionPosts['부산'] || 0) / 5) * 100),
     region: '부산'
   },
   
@@ -139,8 +145,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🍊',
     description: '제주도의 주요 명소를 모두 방문했습니다!',
-    condition: (stats) => stats.regionPosts['제주'] >= 5,
-    points: BADGE_POINTS['중'],
+    condition: (stats) => (stats.regionPosts['제주'] || 0) >= 5,
+    target: 5,
+    getProgress: (stats) => Math.min(100, ((stats.regionPosts['제주'] || 0) / 5) * 100),
     region: '제주'
   },
   
@@ -149,8 +156,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🏛️',
     description: '경주의 주요 명소를 모두 방문했습니다!',
-    condition: (stats) => stats.regionPosts['경주'] >= 5,
-    points: BADGE_POINTS['중'],
+    condition: (stats) => (stats.regionPosts['경주'] || 0) >= 5,
+    target: 5,
+    getProgress: (stats) => Math.min(100, ((stats.regionPosts['경주'] || 0) / 5) * 100),
     region: '경주'
   },
   
@@ -159,8 +167,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🏖️',
     description: '강릉의 주요 명소를 모두 방문했습니다!',
-    condition: (stats) => stats.regionPosts['강릉'] >= 5,
-    points: BADGE_POINTS['중'],
+    condition: (stats) => (stats.regionPosts['강릉'] || 0) >= 5,
+    target: 5,
+    getProgress: (stats) => Math.min(100, ((stats.regionPosts['강릉'] || 0) / 5) * 100),
     region: '강릉'
   },
   
@@ -169,8 +178,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🏯',
     description: '전주의 주요 명소를 모두 방문했습니다!',
-    condition: (stats) => stats.regionPosts['전주'] >= 5,
-    points: BADGE_POINTS['중'],
+    condition: (stats) => (stats.regionPosts['전주'] || 0) >= 5,
+    target: 5,
+    getProgress: (stats) => Math.min(100, ((stats.regionPosts['전주'] || 0) / 5) * 100),
     region: '전주'
   },
   
@@ -180,8 +190,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🍜',
     description: '10개 이상의 맛집을 소개했습니다!',
-    condition: (stats) => stats.categoryPosts['맛집 정보'] >= 10,
-    points: BADGE_POINTS['중']
+    condition: (stats) => (stats.categoryPosts['food'] || 0) >= 10,
+    target: 10,
+    getProgress: (stats) => Math.min(100, ((stats.categoryPosts['food'] || 0) / 10) * 100)
   },
   
   '꽃 사냥꾼': {
@@ -189,8 +200,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🌸',
     description: '10개 이상의 개화 상황을 공유했습니다!',
-    condition: (stats) => stats.categoryPosts['개화 상황'] >= 10,
-    points: BADGE_POINTS['중']
+    condition: (stats) => (stats.categoryPosts['bloom'] || 0) >= 10,
+    target: 10,
+    getProgress: (stats) => Math.min(100, ((stats.categoryPosts['bloom'] || 0) / 10) * 100)
   },
   
   '명소 추천왕': {
@@ -198,8 +210,9 @@ export const BADGES = {
     difficulty: '중',
     icon: '🏞️',
     description: '15개 이상의 추천 장소를 공유했습니다!',
-    condition: (stats) => stats.categoryPosts['추천 장소'] >= 15,
-    points: BADGE_POINTS['중']
+    condition: (stats) => (stats.categoryPosts['scenic'] || 0) >= 15,
+    target: 15,
+    getProgress: (stats) => Math.min(100, ((stats.categoryPosts['scenic'] || 0) / 15) * 100)
   },
   
   // === 특별 뱃지 (상) ===
@@ -209,7 +222,8 @@ export const BADGES = {
     icon: '🚀',
     description: 'LiveJourney 초기 멤버입니다!',
     condition: (stats) => stats.joinDate && new Date(stats.joinDate) < new Date('2025-12-31'),
-    points: BADGE_POINTS['상']
+    target: 1,
+    getProgress: (stats) => (stats.joinDate && new Date(stats.joinDate) < new Date('2025-12-31')) ? 100 : 0
   },
   
   '연속 업로더': {
@@ -218,16 +232,8 @@ export const BADGES = {
     icon: '🔥',
     description: '7일 연속으로 사진을 업로드했습니다!',
     condition: (stats) => stats.consecutiveDays >= 7,
-    points: BADGE_POINTS['상']
-  },
-  
-  '포인트 부자': {
-    name: '포인트 부자',
-    difficulty: '상',
-    icon: '💰',
-    description: '10,000 포인트를 모았습니다!',
-    condition: (stats) => stats.totalPoints >= 10000,
-    points: BADGE_POINTS['상']
+    target: 7,
+    getProgress: (stats) => Math.min(100, (stats.consecutiveDays / 7) * 100)
   }
 };
 
@@ -245,10 +251,10 @@ export const calculateUserStats = () => {
     }
   });
   
-  // 카테고리별 게시물 수
+  // 카테고리별 게시물 수 (category 필드 사용)
   const categoryPosts = {};
   userPosts.forEach(post => {
-    const category = post.categoryName || post.category;
+    const category = post.category; // 'bloom', 'food', 'scenic'
     if (category) {
       categoryPosts[category] = (categoryPosts[category] || 0) + 1;
     }
@@ -259,9 +265,6 @@ export const calculateUserStats = () => {
   
   // 방문한 지역 수
   const visitedRegions = Object.keys(regionPosts).length;
-  
-  // 총 포인트
-  const totalPoints = parseInt(localStorage.getItem('userPoints') || '0');
   
   // 가입일 (localStorage에서 가져오기, 없으면 현재)
   const joinDate = localStorage.getItem('userJoinDate') || new Date().toISOString();
@@ -278,7 +281,6 @@ export const calculateUserStats = () => {
     visitedRegions,
     regionPosts,
     categoryPosts,
-    totalPoints,
     joinDate,
     consecutiveDays
   };
@@ -291,8 +293,8 @@ const calculateConsecutiveDays = (posts) => {
   // 날짜별로 게시물 그룹화
   const dateSet = new Set();
   posts.forEach(post => {
-    if (post.time) {
-      const date = new Date(post.time).toDateString();
+    if (post.timestamp || post.time) {
+      const date = new Date(post.timestamp || post.time).toDateString();
       dateSet.add(date);
     }
   });
@@ -332,7 +334,7 @@ export const checkNewBadges = () => {
   return newBadges;
 };
 
-// 뱃지 획득 처리 (포인트 지급 포함)
+// 뱃지 획득 처리
 export const awardBadge = (badge) => {
   const earnedBadges = JSON.parse(localStorage.getItem('earnedBadges') || '[]');
   
@@ -350,23 +352,10 @@ export const awardBadge = (badge) => {
   earnedBadges.push(newBadge);
   localStorage.setItem('earnedBadges', JSON.stringify(earnedBadges));
   
-  // 포인트 지급
-  const currentPoints = parseInt(localStorage.getItem('userPoints') || '0');
-  const newPoints = currentPoints + badge.points;
-  localStorage.setItem('userPoints', newPoints.toString());
+  console.log(`🏆 뱃지 획득: ${badge.name} (난이도: ${badge.difficulty})`);
   
-  // 포인트 히스토리 추가
-  const pointsHistory = JSON.parse(localStorage.getItem('pointsHistory') || '[]');
-  pointsHistory.unshift({
-    action: `뱃지 획득: ${badge.name}`,
-    points: badge.points,
-    timestamp: new Date().toISOString(),
-    badge: badge.name,
-    difficulty: badge.difficulty
-  });
-  localStorage.setItem('pointsHistory', JSON.stringify(pointsHistory));
-  
-  console.log(`🏆 뱃지 획득: ${badge.name} (난이도: ${badge.difficulty}, +${badge.points}P)`);
+  // 뱃지 획득 이벤트 발생
+  window.dispatchEvent(new CustomEvent('badgeEarned', { detail: newBadge }));
   
   return true;
 };
@@ -399,33 +388,15 @@ export const getAvailableBadges = () => {
   
   return Object.values(BADGES).map(badge => {
     const isEarned = earnedBadgeNames.includes(badge.name);
-    const progress = calculateBadgeProgress(badge, stats);
+    const progress = badge.getProgress(stats);
+    
+    const earnedBadge = earnedBadges.find(b => b.name === badge.name);
     
     return {
       ...badge,
       isEarned,
-      progress
+      progress: Math.round(progress),
+      earnedAt: earnedBadge?.earnedAt
     };
   });
 };
-
-// 뱃지 진행률 계산
-const calculateBadgeProgress = (badge, stats) => {
-  // 간단한 진행률 계산 (실제로는 더 복잡할 수 있음)
-  if (badge.condition(stats)) {
-    return 100;
-  }
-  
-  // 게시물 수 기반 뱃지
-  if (badge.name.includes('여행') || badge.name.includes('사진')) {
-    const required = badge.name.includes('100') ? 100 : 
-                    badge.name.includes('50') ? 50 :
-                    badge.name.includes('25') ? 25 :
-                    badge.name.includes('10') ? 10 :
-                    badge.name.includes('3') ? 3 : 1;
-    return Math.min(100, (stats.totalPosts / required) * 100);
-  }
-  
-  return 0;
-};
-

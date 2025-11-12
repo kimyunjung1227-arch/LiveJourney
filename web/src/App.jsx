@@ -1,9 +1,9 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
-import StatusBar from './components/StatusBar'
 import MockDataLoader from './components/MockDataLoader'
+import { initStatusBar } from './utils/statusBar'
 
 // Pages
 import WelcomeScreen from './pages/WelcomeScreen'
@@ -26,13 +26,6 @@ import AccountDeleteScreen from './pages/AccountDeleteScreen'
 import AccountDeleteConfirmScreen from './pages/AccountDeleteConfirmScreen'
 import BadgeListScreen from './pages/BadgeListScreen'
 import BadgeAchievementScreen from './pages/BadgeAchievementScreen'
-import PointsScreen from './pages/PointsScreen'
-import PointsHistoryScreen from './pages/PointsHistoryScreen'
-import PointsUsageGuideScreen from './pages/PointsUsageGuideScreen'
-import PointsShopScreen from './pages/PointsShopScreen'
-import PointsCategoryScreen from './pages/PointsCategoryScreen'
-import PointsProductDetailScreen from './pages/PointsProductDetailScreen'
-import ExchangeSuccessScreen from './pages/ExchangeSuccessScreen'
 import MyCouponsScreen from './pages/MyCouponsScreen'
 import SettingsScreen from './pages/SettingsScreen'
 import FeedUpdateFrequencyScreen from './pages/FeedUpdateFrequencyScreen'
@@ -44,11 +37,15 @@ import TermsOfServiceScreen from './pages/TermsOfServiceScreen'
 import NotificationsScreen from './pages/NotificationsScreen'
 
 function App() {
+  // StatusBar 초기화 (앱 시작 시 한 번만)
+  useEffect(() => {
+    initStatusBar();
+  }, []);
+
   return (
     <AuthProvider>
       <Router>
         <div className="app-container">
-          <StatusBar />
           <MockDataLoader />
           <div className="page-wrapper">
             <Routes>
@@ -73,13 +70,6 @@ function App() {
               <Route path="/badges" element={<ProtectedRoute><BadgeListScreen /></ProtectedRoute>} />
               <Route path="/badge-achievement/:badgeId" element={<ProtectedRoute><BadgeAchievementScreen /></ProtectedRoute>} />
               <Route path="/badge/achievement" element={<ProtectedRoute><BadgeAchievementScreen /></ProtectedRoute>} />
-              <Route path="/points" element={<ProtectedRoute><PointsScreen /></ProtectedRoute>} />
-              <Route path="/points/history" element={<ProtectedRoute><PointsHistoryScreen /></ProtectedRoute>} />
-              <Route path="/points/guide" element={<ProtectedRoute><PointsUsageGuideScreen /></ProtectedRoute>} />
-              <Route path="/points/shop" element={<ProtectedRoute><PointsShopScreen /></ProtectedRoute>} />
-              <Route path="/points/category/:category" element={<ProtectedRoute><PointsCategoryScreen /></ProtectedRoute>} />
-              <Route path="/points/product/:productId" element={<ProtectedRoute><PointsProductDetailScreen /></ProtectedRoute>} />
-              <Route path="/exchange-success" element={<ProtectedRoute><ExchangeSuccessScreen /></ProtectedRoute>} />
               <Route path="/coupons" element={<ProtectedRoute><MyCouponsScreen /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
               <Route path="/feed-update-frequency" element={<ProtectedRoute><FeedUpdateFrequencyScreen /></ProtectedRoute>} />
@@ -99,6 +89,8 @@ function App() {
 }
 
 export default App
+
+
 
 
 

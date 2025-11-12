@@ -3,12 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNavigation from '../components/BottomNavigation';
 import { getUnreadCount } from '../utils/notifications';
+import { getEarnedBadges } from '../utils/badgeSystem';
+import { getUserLevel } from '../utils/levelSystem';
 
 const ProfileScreen = () => {
   const navigate = useNavigate();
   const { user: authUser, logout } = useAuth();
   const [user, setUser] = useState(null);
   const [myPosts, setMyPosts] = useState([]);
+  const [earnedBadges, setEarnedBadges] = useState([]);
+  const [representativeBadge, setRepresentativeBadge] = useState(null);
+  const [showBadgeSelector, setShowBadgeSelector] = useState(false);
+  const [levelInfo, setLevelInfo] = useState(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
@@ -17,6 +23,23 @@ const ProfileScreen = () => {
     // localStorage에서 사용자 정보 로드
     const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
     setUser(savedUser);
+
+    // 획득한 뱃지 로드
+    const badges = getEarnedBadges();
+    setEarnedBadges(badges);
+    console.log('🏆 프로필 화면 - 획득한 뱃지 로드:', badges.length);
+
+    // 대표 뱃지 로드
+    const savedRepBadge = localStorage.getItem('representativeBadge');
+    if (savedRepBadge) {
+      const repBadge = JSON.parse(savedRepBadge);
+      setRepresentativeBadge(repBadge);
+    }
+
+    // 레벨 정보 로드
+    const userLevelInfo = getUserLevel();
+    setLevelInfo(userLevelInfo);
+    console.log('📊 레벨 정보:', userLevelInfo);
 
     // 내가 업로드한 게시물 로드
     const uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
@@ -46,14 +69,32 @@ const ProfileScreen = () => {
       setMyPosts(updatedUserPosts);
     };
 
+    // 뱃지 업데이트 이벤트 리스너
+    const handleBadgeUpdate = () => {
+      const updatedBadges = getEarnedBadges();
+      setEarnedBadges(updatedBadges);
+      console.log('🏆 뱃지 업데이트:', updatedBadges.length);
+    };
+
+    // 레벨 업데이트 이벤트 리스너
+    const handleLevelUpdate = () => {
+      const updatedLevelInfo = getUserLevel();
+      setLevelInfo(updatedLevelInfo);
+      console.log('📊 레벨 업데이트:', updatedLevelInfo);
+    };
+
     window.addEventListener('notificationUpdate', handleNotificationUpdate);
     window.addEventListener('newPostsAdded', handlePostsUpdate);
     window.addEventListener('storage', handlePostsUpdate);
+    window.addEventListener('badgeEarned', handleBadgeUpdate);
+    window.addEventListener('levelUp', handleLevelUpdate);
     
     return () => {
       window.removeEventListener('notificationUpdate', handleNotificationUpdate);
       window.removeEventListener('newPostsAdded', handlePostsUpdate);
       window.removeEventListener('storage', handlePostsUpdate);
+      window.removeEventListener('badgeEarned', handleBadgeUpdate);
+      window.removeEventListener('levelUp', handleLevelUpdate);
     };
   }, []);
 
@@ -111,6 +152,32 @@ const ProfileScreen = () => {
     alert(`${selectedPhotos.length}개의 사진이 삭제되었습니다.`);
   };
 
+  // 대표 뱃지 선택
+  const selectRepresentativeBadge = (badge) => {
+    localStorage.setItem('representativeBadge', JSON.stringify(badge));
+    setRepresentativeBadge(badge);
+    setShowBadgeSelector(false);
+    
+    // user 정보 업데이트
+    const updatedUser = { ...user, representativeBadge: badge };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+    
+    console.log('✅ 대표 뱃지 선택:', badge.name);
+  };
+
+  // 대표 뱃지 제거
+  const removeRepresentativeBadge = () => {
+    localStorage.removeItem('representativeBadge');
+    setRepresentativeBadge(null);
+    
+    const updatedUser = { ...user, representativeBadge: null };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+    
+    console.log('❌ 대표 뱃지 제거');
+  };
+
   if (!user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
@@ -122,15 +189,15 @@ const ProfileScreen = () => {
     );
   }
 
-  const badgeCount = user.badges?.length || 0;
+  const badgeCount = earnedBadges.length;
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
         {/* 헤더 */}
-        <header className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex items-center p-4 justify-between">
+        <header className="screen-header bg-white dark:bg-gray-900 flex items-center p-4 justify-between">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/main')}
             className="text-text-primary-light dark:text-text-primary-dark"
           >
             <span className="material-symbols-outlined">arrow_back</span>
@@ -144,8 +211,10 @@ const ProfileScreen = () => {
           </button>
         </header>
 
-        {/* 프로필 정보 */}
-        <div className="bg-white dark:bg-gray-900 px-6 py-6">
+        {/* 메인 컨텐츠 */}
+        <div className="screen-body">
+          {/* 프로필 정보 */}
+          <div className="bg-white dark:bg-gray-900 px-6 py-6">
           <div className="flex items-center gap-4 mb-4">
             {/* 프로필 사진 */}
             <div className="flex-shrink-0">
@@ -164,12 +233,40 @@ const ProfileScreen = () => {
 
             {/* 사용자 정보 */}
             <div className="flex-1">
-              <h2 className="text-text-primary-light dark:text-text-primary-dark text-lg font-bold mb-1">
-                {user.username || '모사모'}
-              </h2>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-text-primary-light dark:text-text-primary-dark text-lg font-bold">
+                  {user.username || '모사모'}
+                </h2>
+                {/* 대표 뱃지 */}
+                {representativeBadge && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-primary/20 to-orange-400/20 rounded-full border-2 border-primary/30">
+                    <span style={{ fontSize: '16px' }}>{representativeBadge.icon}</span>
+                    <span className="text-xs font-bold text-primary">{representativeBadge.name}</span>
+                  </div>
+                )}
+              </div>
               <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
-                Lv. 1 Traveler
+                {levelInfo ? `Lv. ${levelInfo.level} ${levelInfo.title}` : 'Lv. 1 여행 입문자'}
               </p>
+              {/* 경험치 바 */}
+              {levelInfo && levelInfo.level < 100 && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                      EXP {levelInfo.expInCurrentLevel.toLocaleString()} / {levelInfo.expNeededForNextLevel.toLocaleString()}
+                    </span>
+                    <span className="text-xs font-bold text-primary">
+                      {levelInfo.progress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-primary to-orange-400 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${levelInfo.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -219,37 +316,47 @@ const ProfileScreen = () => {
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => navigate('/badges')}
-              className="w-full text-left"
-            >
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                <span className="text-text-primary-light dark:text-text-primary-dark font-medium">뱃지 모아보기</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-primary font-bold">{badgeCount}</span>
-                  <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">
-                    chevron_right
-                  </span>
+            <div className="space-y-3">
+              {/* 대표 뱃지 선택 버튼 */}
+              <button
+                onClick={() => setShowBadgeSelector(true)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-orange-400/10 rounded-xl border-2 border-primary/30 hover:border-primary/50 transition-all">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary text-2xl">military_tech</span>
+                    <div>
+                      <p className="text-text-primary-light dark:text-text-primary-dark font-bold text-sm">대표 뱃지</p>
+                      <p className="text-text-secondary-light dark:text-text-secondary-dark text-xs">
+                        {representativeBadge ? representativeBadge.name : '뱃지를 선택해주세요'}
+                      </p>
+                    </div>
+                  </div>
+                  {representativeBadge && (
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: '28px' }}>{representativeBadge.icon}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </button>
-          )}
-        </div>
+              </button>
 
-        {/* 포인트 관리 */}
-        <div className="bg-white dark:bg-gray-900 px-6 py-4 border-t border-gray-100 dark:border-gray-800">
-          <button
-            onClick={() => navigate('/points')}
-            className="w-full flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-lg p-2 -m-2"
-          >
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-xl">paid</span>
-              <span className="text-text-primary-light dark:text-text-primary-dark font-medium text-base">
-                {user.points?.toLocaleString() || '10000'} P
-              </span>
+              {/* 뱃지 모아보기 */}
+              <button
+                onClick={() => navigate('/badges')}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <span className="text-text-primary-light dark:text-text-primary-dark font-medium">뱃지 모아보기</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-bold">{badgeCount}</span>
+                    <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">
+                      chevron_right
+                    </span>
+                  </div>
+                </div>
+              </button>
             </div>
-            <span className="text-text-primary-light dark:text-text-primary-dark text-sm">포인트 관리</span>
-          </button>
+          )}
         </div>
 
         {/* 쿠폰함 */}
@@ -294,14 +401,21 @@ const ProfileScreen = () => {
 
           {myPosts.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mb-4">
+              <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4 block">
+                add_photo_alternate
+              </span>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-medium mb-2">
                 아직 올린 사진이 없어요
+              </p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mb-4">
+                첫 번째 여행 사진을 공유해보세요!
               </p>
               <button
                 onClick={() => navigate('/upload')}
-                className="bg-primary text-white py-2 px-6 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors"
+                className="bg-primary text-white py-3 px-6 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg inline-flex items-center gap-2"
               >
-                사진 올리기
+                <span className="material-symbols-outlined">add_a_photo</span>
+                첫 사진 올리기
               </button>
             </div>
           ) : (
@@ -351,7 +465,66 @@ const ProfileScreen = () => {
             </div>
           )}
         </div>
+        </div>
 
+        {/* 대표 뱃지 선택 모달 */}
+        {showBadgeSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+              <h2 className="text-lg font-bold">🏆 대표 뱃지 선택</h2>
+              <button 
+                onClick={() => setShowBadgeSelector(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* 뱃지 리스트 */}
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {representativeBadge && (
+                <button
+                  onClick={removeRepresentativeBadge}
+                  className="w-full mb-3 p-3 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-800 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-red-500">close</span>
+                    <span className="text-red-500 font-semibold text-sm">대표 뱃지 제거</span>
+                  </div>
+                </button>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                {earnedBadges.map((badge, index) => (
+                  <button
+                    key={index}
+                    onClick={() => selectRepresentativeBadge(badge)}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      representativeBadge?.name === badge.name
+                        ? 'bg-gradient-to-br from-primary/20 to-orange-400/20 border-primary shadow-lg'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <span style={{ fontSize: '48px' }}>{badge.icon}</span>
+                      <p className="text-sm font-bold text-center">{badge.name}</p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        badge.difficulty === '상' ? 'bg-purple-500 text-white' :
+                        badge.difficulty === '중' ? 'bg-blue-500 text-white' :
+                        'bg-green-500 text-white'
+                      }`}>
+                        {badge.difficulty}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
       </div>
 
       <BottomNavigation />
@@ -360,6 +533,10 @@ const ProfileScreen = () => {
 };
 
 export default ProfileScreen;
+
+
+
+
 
 
 

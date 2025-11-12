@@ -41,7 +41,7 @@ const FAQScreen = () => {
       id: 5,
       category: '결제',
       question: '결제 수단은 어떤 것들이 있나요?',
-      answer: 'LiveJourney는 신용카드(VISA, MasterCard, JCB), 체크카드, 간편결제(카카오페이, 네이버페이, 토스), 계좌이체 등 다양한 결제 수단을 지원합니다. 포인트 상점에서 상품을 교환하실 때 편리하게 이용하실 수 있습니다.'
+      answer: 'LiveJourney는 신용카드(VISA, MasterCard, JCB), 체크카드, 간편결제(카카오페이, 네이버페이, 토스), 계좌이체 등 다양한 결제 수단을 지원합니다. 쿠폰함에서 상품을 이용하실 때 편리하게 사용하실 수 있습니다.'
     },
     {
       id: 6,
@@ -52,8 +52,8 @@ const FAQScreen = () => {
     {
       id: 7,
       category: '서비스 이용',
-      question: '포인트는 어떻게 적립하나요?',
-      answer: '포인트는 여행지 사진 업로드, 리뷰 작성, 뱃지 획득, 친구 추천 등 다양한 활동을 통해 자동으로 적립됩니다. 적립된 포인트는 포인트 상점에서 다양한 쿠폰과 상품으로 교환하실 수 있습니다.'
+      question: '뱃지는 어떻게 획득하나요?',
+      answer: '뱃지는 여행지 사진 업로드, 특정 지역 방문, 카테고리별 활동 등 다양한 조건을 달성하면 자동으로 획득됩니다. 획득한 뱃지는 프로필에서 확인할 수 있으며, 각 뱃지마다 난이도가 있어 도전 목표가 됩니다.'
     },
     {
       id: 8,
@@ -81,9 +81,9 @@ const FAQScreen = () => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark group/design-root">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border-light bg-surface-light/80 dark:border-border-dark dark:bg-surface-dark/80 backdrop-blur-sm px-4">
+    <div className="screen-layout bg-background-light dark:bg-background-dark group/design-root">
+      <div className="screen-content">
+        <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-surface-light/80 dark:border-border-dark dark:bg-surface-dark/80 backdrop-blur-sm px-4">
         <button
           onClick={() => navigate('/settings')}
           className="flex size-12 shrink-0 items-center justify-start cursor-pointer text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"

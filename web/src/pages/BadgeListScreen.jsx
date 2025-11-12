@@ -368,10 +368,10 @@ const BadgeListScreen = () => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-white dark:bg-background-dark">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+    <div className="screen-layout bg-white dark:bg-background-dark">
+      <div className="screen-content">
         {/* 헤더 */}
-        <header className="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center p-4 pb-2 justify-between">
+        <header className="screen-header bg-white/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center p-4 pb-2 justify-between">
           <button 
             onClick={() => navigate('/profile')}
             aria-label="Back" 
@@ -446,7 +446,7 @@ const BadgeListScreen = () => {
                     {badge.name}
                   </p>
                   
-                  {/* 난이도 & 포인트 */}
+                  {/* 난이도 */}
                   {badge.isEarned ? (
                     <div className="flex items-center justify-center gap-1.5 mt-1">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -455,9 +455,6 @@ const BadgeListScreen = () => {
                         'bg-green-500 text-white'
                       }`}>
                         {badge.difficulty}
-                      </span>
-                      <span className="text-[10px] font-bold text-primary">
-                        +{badge.points}P
                       </span>
                     </div>
                   ) : (
@@ -484,9 +481,19 @@ const BadgeListScreen = () => {
               <span className="material-symbols-outlined text-6xl text-text-secondary-light dark:text-text-secondary-dark mb-4">
                 workspace_premium
               </span>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark text-base">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-medium mb-2">
                 아직 획득한 뱃지가 없습니다
               </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+                첫 사진을 올려서 뱃지를 획득해보세요!
+              </p>
+              <button
+                onClick={() => navigate('/upload')}
+                className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined">add_a_photo</span>
+                첫 사진 올리기
+              </button>
             </div>
           )}
         </main>
@@ -511,7 +518,7 @@ const BadgeListScreen = () => {
                 {selectedBadge.name}
               </h2>
               
-              {/* 난이도 & 포인트 */}
+              {/* 난이도 */}
               <div className="flex items-center justify-center gap-2 mt-3">
                 <span className={`text-sm font-bold px-3 py-1 rounded-full ${
                   selectedBadge.difficulty === '상' ? 'bg-purple-500 text-white' :
@@ -519,9 +526,6 @@ const BadgeListScreen = () => {
                   'bg-green-500 text-white'
                 }`}>
                   난이도: {selectedBadge.difficulty}
-                </span>
-                <span className="text-sm font-bold px-3 py-1 rounded-full bg-primary text-white">
-                  +{selectedBadge.points}P
                 </span>
               </div>
               

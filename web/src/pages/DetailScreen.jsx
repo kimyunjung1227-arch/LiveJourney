@@ -278,8 +278,9 @@ const DetailScreen = () => {
   const currentDisplayData = useMemo(() => getDisplayData(), [getDisplayData]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      <div className="flex-shrink-0 z-20 flex flex-col bg-background-light dark:bg-background-dark border-b border-zinc-200 dark:border-zinc-800">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
+        <div className="screen-header flex-shrink-0 flex flex-col bg-background-light dark:bg-background-dark border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}
@@ -345,9 +346,9 @@ const DetailScreen = () => {
             </div>
           </div>
         )}
-      </div>
+        </div>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden screen-body">
         {displayedItems.length > 0 && (
           <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
             <div className="flex items-center justify-between">
@@ -414,10 +415,8 @@ const DetailScreen = () => {
                         boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                       }}>
                         {item.categoryName === '개화 상황' && '🌸'}
-                        {item.categoryName === '추천 장소' && '🏞️'}
                         {item.categoryName === '맛집 정보' && '🍜'}
-                        {item.categoryName === '가볼만한곳' && '🗺️'}
-                        {!['개화 상황', '추천 장소', '맛집 정보', '가볼만한곳'].includes(item.categoryName) && '📷'}
+                        {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
                       </span>
                     </div>
                   )}
@@ -481,7 +480,8 @@ const DetailScreen = () => {
             ) : null}
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       <BottomNavigation />
     </div>

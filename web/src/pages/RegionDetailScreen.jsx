@@ -41,12 +41,9 @@ const RegionDetailScreen = () => {
   const loadRegionData = useCallback(() => {
     let uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
-    // Mock 데이터가 없으면 즉시 생성!
+    // Mock 데이터 생성 비활성화 - 프로덕션 모드
     if (uploadedPosts.length === 0) {
-      console.log('⚠️ Mock 데이터가 없습니다! 즉시 1000개 생성...');
-      seedMockData(1000);
-      uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-      console.log(`✅ ${uploadedPosts.length}개 Mock 데이터 생성 완료!`);
+      console.log('📭 업로드된 게시물이 없습니다.');
     }
     
     const regionPosts = uploadedPosts.filter(
@@ -171,9 +168,9 @@ const RegionDetailScreen = () => {
   }, [loadRegionData, fetchWeatherData, fetchTrafficData]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200/80 bg-background-light/80 p-4 pb-3 backdrop-blur-sm dark:border-gray-700/80 dark:bg-background-dark/80">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
+        <header className="screen-header flex items-center justify-between border-b border-gray-200/80 bg-background-light/80 p-4 pb-3 backdrop-blur-sm dark:border-gray-700/80 dark:bg-background-dark/80">
         <button 
           onClick={() => navigate(-1)}
           className="flex size-12 shrink-0 items-center justify-center text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -186,7 +183,8 @@ const RegionDetailScreen = () => {
         <div className="w-12"></div>
       </header>
 
-        <main className="flex-grow pb-4">
+        <div className="screen-body">
+          <main>
         <div className="flex justify-center gap-2 p-4 pt-4">
           <div className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface pl-3 pr-4 shadow-sm dark:bg-background-dark/50">
               {weatherInfo.loading ? (
@@ -235,11 +233,15 @@ const RegionDetailScreen = () => {
                 <p className="text-base font-medium text-gray-700 dark:text-gray-300 mb-2 text-center">
                   {region.name}의 실시간 정보가 없어요
                 </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+                  첫 번째 사진을 공유해보세요!
+                </p>
                 <button
                   onClick={() => navigate('/upload')}
-                  className="bg-primary text-white px-6 py-2.5 rounded-full font-semibold hover:bg-primary/90 transition-colors mt-4"
+                  className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2 mx-auto"
                 >
-                  정보 공유하기
+                  <span className="material-symbols-outlined">add_a_photo</span>
+                  첫 사진 올리기
                 </button>
               </div>
             ) : (
@@ -274,10 +276,8 @@ const RegionDetailScreen = () => {
                           boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                         }}>
                           {photo.categoryName === '개화 상황' && '🌸'}
-                          {photo.categoryName === '추천 장소' && '🏞️'}
                           {photo.categoryName === '맛집 정보' && '🍜'}
-                          {photo.categoryName === '가볼만한곳' && '🗺️'}
-                          {!['개화 상황', '추천 장소', '맛집 정보', '가볼만한곳'].includes(photo.categoryName) && '📷'}
+                          {(!photo.categoryName || !['개화 상황', '맛집 정보'].includes(photo.categoryName)) && '🏞️'}
                         </span>
                       </div>
                     )}
@@ -325,74 +325,7 @@ const RegionDetailScreen = () => {
             )}
         </div>
 
-          {/* 개화 상황 */}
-        <div>
-          <div className="flex items-center justify-between px-4 pb-3 pt-8">
-              <h2 className="text-[22px] font-bold leading-tight tracking-[-0.015em] text-text-headings dark:text-gray-100 flex items-center gap-2">
-                🌸 {region.name} 개화 상황
-                {bloomPhotos.length > 0 && (
-                  <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
-                    AI 자동 분류
-                  </span>
-                )}
-            </h2>
-              {bloomPhotos.length > 0 && (
-            <button 
-              onClick={() => navigate(`/region/${region.name}/category?type=blooming`)}
-              className="text-sm font-medium text-text-body dark:text-gray-400 hover:text-primary transition-colors"
-            >
-              더보기
-            </button>
-              )}
-          </div>
-
-            {bloomPhotos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 px-4">
-                <span className="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3">local_florist</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">개화 정보가 아직 없어요</p>
-              </div>
-            ) : (
-          <div className="grid grid-cols-2 gap-3 px-4">
-                {bloomPhotos.map((photo) => (
-                  <div 
-                    key={photo.id} 
-                    className="relative overflow-hidden rounded-xl bg-gray-200 cursor-pointer group shadow-lg hover:shadow-xl transition-all"
-                    onClick={() => navigate(`/post/${photo.id}`, { state: { post: photo } })}
-              >
-                <img
-                      className="h-full w-full object-cover aspect-[1/1] group-hover:scale-105 transition-transform duration-300"
-                      src={photo.image}
-                  alt={`${region.name} 개화 상황`}
-                />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                    
-                    {/* 좌측상단: 카테고리 아이콘만 */}
-                    <div className="absolute top-0 left-0 p-2">
-                      <span className="text-lg font-bold bg-white/90 dark:bg-white/80 rounded-full w-9 h-9 flex items-center justify-center shadow-md backdrop-blur-sm">
-                        🌸
-                      </span>
-                    </div>
-                    
-                    {/* 하단: 지역정보 + 시간 */}
-                    <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-1">
-                      {photo.detailedLocation && (
-                        <p className="text-white text-sm font-bold truncate drop-shadow-lg">
-                          📍 {photo.detailedLocation}
-                        </p>
-                      )}
-                      {photo.time && (
-                        <p className="text-white/90 text-xs font-medium drop-shadow-md">
-                          ⏰ {photo.time}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-        </div>
-
-          {/* 가볼만한곳 */}
+          {/* 가볼만한곳 - 첫 번째 */}
         <div>
           <div className="flex items-center justify-between px-4 pb-3 pt-8">
               <h2 className="text-[22px] font-bold leading-tight tracking-[-0.015em] text-text-headings dark:text-gray-100 flex items-center gap-2">
@@ -416,7 +349,15 @@ const RegionDetailScreen = () => {
             {touristSpots.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 px-4">
                 <span className="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3">explore</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">추천 장소가 아직 없어요</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center mb-1">추천 장소가 아직 없어요</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center mb-3">첫 번째 사진을 공유해보세요!</p>
+                <button
+                  onClick={() => navigate('/upload')}
+                  className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">add_a_photo</span>
+                  첫 사진 올리기
+                </button>
               </div>
             ) : (
           <div className="grid grid-cols-2 gap-3 px-4">
@@ -458,6 +399,81 @@ const RegionDetailScreen = () => {
               </div>
             )}
           </div>
+
+          {/* 개화 상황 - 두 번째 */}
+        <div>
+          <div className="flex items-center justify-between px-4 pb-3 pt-8">
+              <h2 className="text-[22px] font-bold leading-tight tracking-[-0.015em] text-text-headings dark:text-gray-100 flex items-center gap-2">
+                🌸 {region.name} 개화 상황
+                {bloomPhotos.length > 0 && (
+                  <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
+                    AI 자동 분류
+                  </span>
+                )}
+            </h2>
+              {bloomPhotos.length > 0 && (
+            <button 
+              onClick={() => navigate(`/region/${region.name}/category?type=blooming`)}
+              className="text-sm font-medium text-text-body dark:text-gray-400 hover:text-primary transition-colors"
+            >
+              더보기
+            </button>
+              )}
+          </div>
+
+            {bloomPhotos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-4">
+                <span className="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3">local_florist</span>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center mb-1">개화 정보가 아직 없어요</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center mb-3">첫 번째 사진을 공유해보세요!</p>
+                <button
+                  onClick={() => navigate('/upload')}
+                  className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">add_a_photo</span>
+                  첫 사진 올리기
+                </button>
+              </div>
+            ) : (
+          <div className="grid grid-cols-2 gap-3 px-4">
+                {bloomPhotos.map((photo) => (
+                  <div 
+                    key={photo.id} 
+                    className="relative overflow-hidden rounded-xl bg-gray-200 cursor-pointer group shadow-lg hover:shadow-xl transition-all"
+                    onClick={() => navigate(`/post/${photo.id}`, { state: { post: photo } })}
+              >
+                <img
+                      className="h-full w-full object-cover aspect-[1/1] group-hover:scale-105 transition-transform duration-300"
+                      src={photo.image}
+                  alt={`${region.name} 개화 상황`}
+                />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                    
+                    {/* 좌측상단: 카테고리 아이콘만 */}
+                    <div className="absolute top-0 left-0 p-2">
+                      <span className="text-lg font-bold bg-white/90 dark:bg-white/80 rounded-full w-9 h-9 flex items-center justify-center shadow-md backdrop-blur-sm">
+                        🌸
+                      </span>
+                    </div>
+                    
+                    {/* 하단: 지역정보 + 시간 */}
+                    <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-1">
+                      {photo.detailedLocation && (
+                        <p className="text-white text-sm font-bold truncate drop-shadow-lg">
+                          📍 {photo.detailedLocation}
+                        </p>
+                      )}
+                      {photo.time && (
+                        <p className="text-white/90 text-xs font-medium drop-shadow-md">
+                          ⏰ {photo.time}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
 
           {/* 맛집 정보 */}
           <div>
@@ -526,6 +542,7 @@ const RegionDetailScreen = () => {
             )}
         </div>
         </main>
+        </div>
       </div>
 
       <BottomNavigation />
@@ -534,6 +551,8 @@ const RegionDetailScreen = () => {
 };
 
 export default RegionDetailScreen;
+
+
 
 
 

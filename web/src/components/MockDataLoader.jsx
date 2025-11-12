@@ -50,45 +50,31 @@ const MockDataLoader = () => {
   }, []);
 
   useEffect(() => {
-    // 개발 모드에서만 Mock 데이터 생성
-    if (import.meta.env.MODE === 'development') {
-      console.log('🔍 [개발 모드] MockDataLoader 시작...');
-      
-      const existingPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-      console.log(`📊 현재 게시물: ${existingPosts.length}개`);
-      
-      // 50개 미만이면 생성 (용량 절약)
-      if (existingPosts.length < 50) {
-        console.log('🚀 Mock 데이터 소량 생성 시작!');
-        const needCount = 50 - existingPosts.length;
-        
-        try {
-          const result = seedMockData(needCount);
-          setStats(result);
-          console.log(`✅ ${needCount}개의 Mock 데이터 생성 완료!`);
-          console.log(`✅ 총 ${JSON.parse(localStorage.getItem('uploadedPosts') || '[]').length}개`);
-          
-          // 메인 화면 강제 업데이트
-          window.dispatchEvent(new Event('newPostsAdded'));
-        } catch (error) {
-          console.error('❌ Mock 데이터 생성 실패:', error);
-        }
-      } else {
-        const currentStats = getMockDataStats();
-        setStats(currentStats);
-        console.log('✅ Mock 데이터 충분함 (50개 이상):', currentStats);
-      }
+    // Mock 데이터 자동 생성 비활성화 - 완전 초기 상태
+    console.log('🚫 Mock 데이터 자동 생성 비활성화');
+    console.log('📭 완전히 깨끗한 초기 상태입니다.');
+    
+    const existingPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    console.log(`📊 현재 게시물: ${existingPosts.length}개`);
+    
+    if (existingPosts.length > 0) {
+      const currentStats = getMockDataStats();
+      setStats(currentStats);
+    }
 
-      // 개발 모드에서 window 객체에 유틸리티 함수 추가
+    // 개발 모드에서 window 객체에 유틸리티 함수 추가 (수동 제어용)
+    if (import.meta.env.MODE === 'development') {
       window.mockData = {
         seed: (count = 50) => {
           const result = seedMockData(count);
           console.log(`✅ ${count}개의 Mock 데이터가 생성되었습니다!`);
+          window.location.reload();
           return result;
         },
         clear: () => {
           clearMockData();
           console.log('🗑️ Mock 데이터가 삭제되었습니다.');
+          window.location.reload();
         },
         stats: () => {
           const stats = getMockDataStats();
@@ -97,9 +83,7 @@ const MockDataLoader = () => {
         }
       };
       
-      console.log('💡 콘솔에서 Mock 데이터 제어 가능: window.mockData');
-    } else {
-      console.log('🚫 [프로덕션] Mock 데이터 생성 건너뜀 - 실제 사용자 데이터만 표시');
+      console.log('💡 콘솔에서 수동 제어: window.mockData.seed(개수), window.mockData.clear()');
     }
 
     window.addEventListener('newPostsAdded', handleNewPosts);
@@ -210,6 +194,9 @@ const MockDataLoader = () => {
 };
 
 export default MockDataLoader;
+
+
+
 
 
 

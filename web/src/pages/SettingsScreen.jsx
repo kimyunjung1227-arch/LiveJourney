@@ -77,11 +77,10 @@ const SettingsScreen = () => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      {/* 메인 콘텐츠 - 스크롤 영역 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
         {/* 헤더 */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border-light bg-surface-light/80 dark:border-border-dark dark:bg-surface-dark/80 backdrop-blur-sm px-4">
+        <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-surface-light/80 dark:border-border-dark dark:bg-surface-dark/80 backdrop-blur-sm px-4">
         <button 
           onClick={() => navigate('/profile')}
           className="flex size-12 shrink-0 items-center justify-start cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -403,6 +402,7 @@ const SettingsScreen = () => {
 };
 
 export default SettingsScreen;
+
 
 
 

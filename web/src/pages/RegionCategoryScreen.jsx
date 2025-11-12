@@ -254,8 +254,9 @@ const RegionCategoryScreen = () => {
   const currentDisplayData = useMemo(() => getDisplayData(), [getDisplayData]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      <div className="flex-shrink-0 z-20 flex flex-col bg-background-light dark:bg-background-dark border-b border-zinc-200 dark:border-zinc-800">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
+        <div className="screen-header flex-shrink-0 flex flex-col bg-background-light dark:bg-background-dark border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}
@@ -284,9 +285,9 @@ const RegionCategoryScreen = () => {
             ))}
           </div>
         </div>
-      </div>
+        </div>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden screen-body">
         {displayedItems.length > 0 && (
           <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -299,11 +300,15 @@ const RegionCategoryScreen = () => {
           <div className="flex flex-col items-center justify-center py-20 px-4">
             <span className="material-symbols-outlined text-7xl text-gray-300 dark:text-gray-600 mb-4">photo_camera</span>
             <p className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">아직 사진이 없어요</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+              첫 번째 사진을 공유해보세요!
+            </p>
             <button
               onClick={() => navigate('/upload')}
-              className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors mt-4"
+              className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2"
             >
-              사진 업로드
+              <span className="material-symbols-outlined">add_a_photo</span>
+              첫 사진 올리기
             </button>
           </div>
         ) : (
@@ -339,10 +344,8 @@ const RegionCategoryScreen = () => {
                         boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                       }}>
                         {item.categoryName === '개화 상황' && '🌸'}
-                        {item.categoryName === '추천 장소' && '🏞️'}
                         {item.categoryName === '맛집 정보' && '🍜'}
-                        {item.categoryName === '가볼만한곳' && '🗺️'}
-                        {!['개화 상황', '추천 장소', '맛집 정보', '가볼만한곳'].includes(item.categoryName) && '📷'}
+                        {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
                       </span>
                     </div>
                   )}
@@ -405,7 +408,8 @@ const RegionCategoryScreen = () => {
             ) : null}
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       <BottomNavigation />
     </div>

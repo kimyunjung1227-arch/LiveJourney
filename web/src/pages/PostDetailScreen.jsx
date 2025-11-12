@@ -3,9 +3,8 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { getPost, likePost, addQuestion } from '../api/posts';
 import { useAuth } from '../contexts/AuthContext';
-import { notifyPoints } from '../utils/notifications';
-import { tryEarnPoints } from '../utils/pointsSystem';
 import { getWeatherByRegion } from '../api/weather';
+import { getTimeAgo } from '../utils/dateUtils';
 
 const PostDetailScreen = () => {
   const navigate = useNavigate();
@@ -29,20 +28,13 @@ const PostDetailScreen = () => {
     loading: true
   });
 
-  // 시간 포맷 변환 (useCallback)
-  const getTimeAgo = useCallback((date) => {
-    const now = new Date();
-    const postDate = new Date(date);
-    const diffMs = now - postDate;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
-    if (diffMins < 1) return '방금 전';
-    if (diffMins < 60) return `${diffMins}분 전`;
-    if (diffHours < 24) return `${diffHours}시간 전`;
-    return `${diffDays}일 전`;
-  }, []);
+  // 이미지 배열 (useMemo) - handleImageSwipe보다 먼저 정의
+  const images = useMemo(() => 
+    post?.images || (post?.image ? [post.image] : [
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuAuQD6UVDY8Zj1lLvuh-jXx2a7MWZ7EehcGjjrvuunpEYhg8CUN-UEciHT5HAy9SeWSK1-fE8LhjG8Gzz3xoeckZij4ZVPemMw9-nzvve8C4sDBTLSMmwEH3s4ykQbumGqoOQeXp44POQQOpYUz4_1b9u35CfXGOoxaeMP3x0PbHho7ID3cbvNmrM5S39_rhBtzhOgp-AGY3I-8XBQCtqXWRwq4XXNEAj26oWc5KlUayXQ0ZHm5qBgyCMXQ7IC5l6Q09gsdt2fZ4009'
+    ]),
+    [post]
+  );
 
   // Q&A 포맷 변환 (useCallback)
   const formatQnA = useCallback((questions) => {
@@ -155,21 +147,6 @@ const PostDetailScreen = () => {
       
       // 로컬 데이터는 state만 업데이트
       if (!postIdToUse || postIdToUse.toString().includes('-')) {
-        if (newLiked) {
-          const result = tryEarnPoints('좋아요', postIdToUse);
-          if (result.success) {
-            notifyPoints(result.points, '좋아요');
-          } else if (result.reason === 'cooldown') {
-            // 쿨다운 중에는 좋아요는 되지만 포인트는 안 줌
-            console.log('⏰ 좋아요는 가능하지만 포인트 쿨다운 중');
-          } else if (result.message) {
-            alert(result.message);
-            // 한도 초과 시 좋아요 취소
-            setLiked(liked);
-            setLikeCount(likeCount);
-            return;
-          }
-        }
         return;
       }
 
@@ -179,15 +156,6 @@ const PostDetailScreen = () => {
         // API 응답으로 최종 확정
         setLiked(response.liked);
         setLikeCount(response.likesCount);
-        
-        if (response.liked) {
-          const result = tryEarnPoints('좋아요', postIdToUse);
-          if (result.success) {
-            notifyPoints(result.points, '좋아요');
-          } else if (result.message && result.reason !== 'cooldown') {
-            alert(result.message);
-          }
-        }
       }
     } catch (error) {
       // 네트워크 오류는 조용히 무시 (이미 UI 업데이트 완료)
@@ -260,17 +228,7 @@ const PostDetailScreen = () => {
         }
         
         setQuestion('');
-        
-        // 포인트 획득 시도
-        const result = tryEarnPoints('질문 작성', `${postIdToUse}_${Date.now()}`);
-        if (result.success) {
-          notifyPoints(result.points, '질문 작성');
-          alert(`✅ 질문이 등록되었습니다!\n포인트 ${result.points}P를 획득했습니다.`);
-        } else if (result.message) {
-          alert(`✅ 질문이 등록되었습니다!\n\n⚠️ ${result.message}`);
-        } else {
-          alert('✅ 질문이 등록되었습니다!');
-        }
+        alert('✅ 질문이 등록되었습니다!');
         return;
       }
 
@@ -288,17 +246,7 @@ const PostDetailScreen = () => {
         };
         setQnaList([...qnaList, newQuestion]);
         setQuestion('');
-        
-        // 포인트 획득 시도
-        const result = tryEarnPoints('질문 작성', `${postIdToUse}_${Date.now()}`);
-        if (result.success) {
-          notifyPoints(result.points, '질문 작성');
-          alert(`✅ 질문이 등록되었습니다!\n포인트 ${result.points}P를 획득했습니다.`);
-        } else if (result.message) {
-          alert(`✅ 질문이 등록되었습니다!\n\n⚠️ ${result.message}`);
-        } else {
-          alert('✅ 질문이 등록되었습니다!');
-        }
+        alert('✅ 질문이 등록되었습니다!');
       }
     } catch (error) {
       // 네트워크 오류는 조용히 처리
@@ -318,27 +266,19 @@ const PostDetailScreen = () => {
     } else if (direction === 'right' && currentImageIndex > 0) {
       setCurrentImageIndex(currentImageIndex - 1);
     }
-  }, [currentImageIndex]);
+  }, [currentImageIndex, images.length]);
 
   // 초기 데이터 로드
   useEffect(() => {
     fetchPost();
   }, [fetchPost]);
-
-  // 이미지 배열 (useMemo) - 먼저 정의
-  const images = useMemo(() => 
-    post?.images || (post?.image ? [post.image] : [
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAuQD6UVDY8Zj1lLvuh-jXx2a7MWZ7EehcGjjrvuunpEYhg8CUN-UEciHT5HAy9SeWSK1-fE8LhjG8Gzz3xoeckZij4ZVPemMw9-nzvve8C4sDBTLSMmwEH3s4ykQbumGqoOQeXp44POQQOpYUz4_1b9u35CfXGOoxaeMP3x0PbHho7ID3cbvNmrM5S39_rhBtzhOgp-AGY3I-8XBQCtqXWRwq4XXNEAj26oWc5KlUayXQ0ZHm5qBgyCMXQ7IC5l6Q09gsdt2fZ4009'
-    ]),
-    [post]
-  );
   
   const locationText = useMemo(() => post?.location?.name || post?.location || post?.title || '여행지', [post]);
   const detailedLocationText = useMemo(() => post?.detailedLocation || post?.placeName || null, [post]);
   const addressText = useMemo(() => post?.address || null, [post]);
   const userName = useMemo(() => post?.user?.username || post?.user || '실시간정보왕', [post]);
   const userBadge = useMemo(() => post?.user?.badges?.[0] || post?.badge || '여행러버', [post]);
-  const timeText = useMemo(() => post?.time || (post?.createdAt ? getTimeAgo(post.createdAt) : '방금 전'), [post, getTimeAgo]);
+  const timeText = useMemo(() => post?.time || (post?.createdAt ? getTimeAgo(post.createdAt) : '방금 전'), [post]);
   const categoryName = useMemo(() => post?.categoryName || null, [post]);
 
   // 공유 기능 - useMemo 정의 후에!
@@ -415,9 +355,9 @@ const PostDetailScreen = () => {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="flex items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm p-4 pb-2 justify-between sticky top-0 z-10">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
+        <div className="screen-header flex items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm p-4 pb-2 justify-between">
           <button 
             onClick={() => navigate(-1)}
             className="text-[#181410] dark:text-white flex size-12 shrink-0 items-center"
@@ -520,10 +460,9 @@ const PostDetailScreen = () => {
                   {categoryName && (
                     <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                       {categoryName === '개화 상황' && '🌸'}
-                      {categoryName === '추천 장소' && '🏞️'}
                       {categoryName === '맛집 정보' && '🍜'}
-                      {categoryName === '가볼만한곳' && '🏞️'}
-                      {' '}{categoryName}
+                      {(!categoryName || !['개화 상황', '맛집 정보'].includes(categoryName)) && '🏞️'}
+                      {' '}{categoryName || '추천 장소'}
                     </span>
                   )}
                 </div>
@@ -697,46 +636,6 @@ const PostDetailScreen = () => {
 };
 
 export default PostDetailScreen;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -4,10 +4,13 @@ import BottomNavigation from '../components/BottomNavigation';
 import { createPost } from '../api/posts';
 import { uploadImage } from '../api/upload';
 import { useAuth } from '../contexts/AuthContext';
-import { notifyPoints, notifyBadge } from '../utils/notifications';
-import { tryEarnPoints } from '../utils/pointsSystem';
+import { notifyBadge } from '../utils/notifications';
 import { safeSetItem, logLocalStorageStatus } from '../utils/localStorageManager';
 import { checkNewBadges, awardBadge, hasSeenBadge, markBadgeAsSeen } from '../utils/badgeSystem';
+import { analyzeImageForTags, getRecommendedTags } from '../utils/aiImageAnalyzer';
+import { getCurrentTimestamp, getTimeAgo } from '../utils/timeUtils';
+import { checkAndAwardTitles } from '../utils/dailyTitleSystem';
+import { gainExp } from '../utils/levelSystem';
 
 const UploadScreen = () => {
   const navigate = useNavigate();
@@ -20,7 +23,10 @@ const UploadScreen = () => {
     location: '',
     tags: [],
     note: '',
-    coordinates: null
+    coordinates: null,
+    aiCategory: 'scenic',
+    aiCategoryName: '추천 장소',
+    aiCategoryIcon: '🏞️'
   });
   const [tagInput, setTagInput] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -124,59 +130,68 @@ const UploadScreen = () => {
   const analyzeImageAndGenerateTags = useCallback(async (file) => {
     setLoadingAITags(true);
     try {
-      // 이미지 분석 (AI 카테고리 감지)
-      const uploadResult = await uploadImage(file);
+      console.log('🤖 AI 태그 분석 시작...');
       
-      if (uploadResult.analysis) {
-        const { category, categoryName, labels } = uploadResult.analysis;
+      // 로컬 AI 분석기로 이미지 분석
+      const analysisResult = await analyzeImageForTags(
+        file, 
+        formData.location || '', 
+        formData.note || ''
+      );
+      
+      if (analysisResult.success) {
+        // 1. 해시태그 형식으로 변환
+        const hashtagged = analysisResult.tags.map(tag => 
+          tag.startsWith('#') ? tag : `#${tag}`
+        );
         
-        // AI 라벨 기반 자동 해시태그 생성
-        const generatedTags = [];
+        setAutoTags(hashtagged);
+        console.log('✅ AI 자동 태그 생성 완료:', hashtagged);
+        console.log('🎯 AI 자동 카테고리:', analysisResult.categoryName);
         
-        // 카테고리 기반 태그
-        if (categoryName) {
-          generatedTags.push(`#${categoryName}`);
-        }
+        // 2. AI가 분석한 카테고리를 formData에 자동 설정 ⭐
+        setFormData(prev => ({
+          ...prev,
+          aiCategory: analysisResult.category,
+          aiCategoryName: analysisResult.categoryName,
+          aiCategoryIcon: analysisResult.categoryIcon,
+          // 첫 번째 태그 자동 추가
+          tags: prev.tags.length === 0 && hashtagged.length > 0 
+            ? [hashtagged[0].replace('#', '')] 
+            : prev.tags
+        }));
         
-        // 라벨 기반 태그
-        if (labels && labels.length > 0) {
-          labels.slice(0, 5).forEach(label => {
-            generatedTags.push(`#${label}`);
-          });
-        }
+      } else {
+        // 분석 실패 시 위치/카테고리 기반 추천 태그
+        const recommendedTags = getRecommendedTags('all');
+        setAutoTags(recommendedTags.map(tag => `#${tag}`).slice(0, 8));
         
-        // 카테고리별 추천 태그
-        const categoryTags = {
-          'bloom': ['#꽃구경', '#개화시기', '#벚꽃', '#봄'],
-          'food': ['#맛집', '#먹스타그램', '#음식', '#여행맛집'],
-          'landmark': ['#명소', '#관광지', '#여행', '#포토스팟'],
-          'scenic': ['#풍경', '#뷰맛집', '#자연', '#힐링']
-        };
-        
-        if (category && categoryTags[category]) {
-          categoryTags[category].forEach(tag => {
-            if (!generatedTags.includes(tag)) {
-              generatedTags.push(tag);
-            }
-          });
-        }
-        
-        // 기본 여행 태그 추가
-        if (!generatedTags.some(tag => tag.includes('여행'))) {
-          generatedTags.push('#여행');
-        }
-        
-        setAutoTags(generatedTags.slice(0, 8)); // 최대 8개
-        console.log('🏷️ AI 자동 태그 생성:', generatedTags);
+        // 기본 카테고리 설정
+        setFormData(prev => ({
+          ...prev,
+          aiCategory: 'scenic',
+          aiCategoryName: '추천 장소',
+          aiCategoryIcon: '🏞️'
+        }));
       }
+      
     } catch (error) {
-      console.error('AI 분석 실패:', error);
+      console.error('❌ AI 분석 실패:', error);
       // 기본 태그 제공
-      setAutoTags(['#여행', '#추억', '#일상']);
+      const defaultTags = ['여행', '추억', '풍경', '힐링', '맛집'];
+      setAutoTags(defaultTags.map(tag => `#${tag}`));
+      
+      // 기본 카테고리 설정
+      setFormData(prev => ({
+        ...prev,
+        aiCategory: 'scenic',
+        aiCategoryName: '추천 장소',
+        aiCategoryIcon: '🏞️'
+      }));
     } finally {
       setLoadingAITags(false);
     }
-  }, []);
+  }, [formData.location, formData.note]);
 
   // 이미지 선택 핸들러 (useCallback)
   const handleImageSelect = useCallback(async (e) => {
@@ -255,13 +270,22 @@ const UploadScreen = () => {
 
   // AI 자동 태그 추가 (useCallback)
   const addAutoTag = useCallback((tag) => {
-    if (!formData.tags.includes(tag)) {
+    // # 제거한 순수 태그명
+    const cleanTag = tag.replace('#', '');
+    
+    // 중복 확인 (# 유무 상관없이)
+    const alreadyExists = formData.tags.some(t => 
+      t.replace('#', '') === cleanTag
+    );
+    
+    if (!alreadyExists) {
       setFormData(prev => ({
         ...prev,
-        tags: [...prev.tags, tag]
+        tags: [...prev.tags, cleanTag] // # 없이 저장
       }));
       // 추가된 태그는 추천 목록에서 제거
-      setAutoTags(prev => prev.filter(t => t !== tag));
+      setAutoTags(prev => prev.filter(t => t.replace('#', '') !== cleanTag));
+      console.log('✅ 태그 추가:', cleanTag);
     }
   }, [formData.tags]);
 
@@ -280,14 +304,13 @@ const UploadScreen = () => {
       
       console.log(`🎉 뱃지 획득: ${badge.name}`);
       console.log(`   난이도: ${badge.difficulty}`);
-      console.log(`   포인트: +${badge.points}P`);
       
-      // 뱃지 수여 및 포인트 지급
+      // 뱃지 수여
       const awarded = awardBadge(badge);
       
       if (awarded) {
         // 알림 발생
-        notifyBadge(badge.name, badge.difficulty, badge.points);
+        notifyBadge(badge.name, badge.difficulty);
         console.log('🔔 알림 발생 완료');
         
         // 뱃지 모달 표시
@@ -296,7 +319,11 @@ const UploadScreen = () => {
         setShowBadgeModal(true);
         console.log('✅ 뱃지 모달 state 업데이트:', { earnedBadge: badge, showBadgeModal: true });
         
-        console.log(`🏆 뱃지 획득 완료: ${badge.name} (+${badge.points}P)`);
+        console.log(`🏆 뱃지 획득 완료: ${badge.name}`);
+        
+        // 뱃지 획득 경험치
+        gainExp(`뱃지 획득 (${badge.difficulty})`);
+        
         console.log('========================================');
         
         return true;
@@ -332,9 +359,13 @@ const UploadScreen = () => {
       console.log('⏳ 업로드 상태 설정 완료');
       
       const uploadedImageUrls = [];
-      let aiCategory = 'general';
-      let aiCategoryName = '일반';
-      let aiLabels = [];
+      
+      // AI가 이미 분석한 카테고리 사용 ⭐
+      const aiCategory = formData.aiCategory || 'scenic';
+      const aiCategoryName = formData.aiCategoryName || '추천 장소';
+      const aiLabels = formData.tags || [];
+      
+      console.log('🎯 AI 분석 카테고리 사용:', aiCategoryName);
       
       if (formData.imageFiles.length > 0) {
         for (let i = 0; i < formData.imageFiles.length; i++) {
@@ -345,12 +376,6 @@ const UploadScreen = () => {
             const uploadResult = await uploadImage(file);
             if (uploadResult.success && uploadResult.url) {
               uploadedImageUrls.push(uploadResult.url);
-              
-              if (i === 0 && uploadResult.analysis) {
-                aiCategory = uploadResult.analysis.category || 'general';
-                aiCategoryName = uploadResult.analysis.categoryName || '일반';
-                aiLabels = uploadResult.analysis.labels || [];
-              }
             }
           } catch (uploadError) {
             uploadedImageUrls.push(formData.images[i]);
@@ -387,15 +412,6 @@ const UploadScreen = () => {
           
           console.log('✅ 백엔드 업로드 성공! 뱃지 체크 시작...');
           
-          // 포인트 획득 시도 (백엔드 게시물 ID 사용)
-          const backendPostId = result.post?._id || result.post?.id || `backend-${Date.now()}`;
-          const pointResult = tryEarnPoints('게시물 작성', backendPostId);
-          if (pointResult.success) {
-            notifyPoints(pointResult.points, '게시물 작성');
-          } else if (pointResult.message && pointResult.reason !== 'cooldown') {
-            setTimeout(() => alert(`⚠️ ${pointResult.message}`), 500);
-          }
-          
           // localStorage 저장 후 충분한 지연을 두고 뱃지 확인
           setTimeout(() => {
             console.log('⏰ 뱃지 체크 타이머 실행 (백엔드)');
@@ -431,8 +447,9 @@ const UploadScreen = () => {
           location: formData.location,
           tags: formData.tags,
           note: formData.note,
-          time: new Date().toISOString(),
-          timeLabel: '방금',
+          timestamp: getCurrentTimestamp(), // ISO 8601 형식 timestamp ⭐
+          createdAt: getCurrentTimestamp(), // 호환성을 위해
+          timeLabel: getTimeAgo(new Date()), // 동적 계산 (현재는 "방금")
           user: username,
           likes: 0,
           isNew: true,
@@ -463,19 +480,25 @@ const UploadScreen = () => {
         setShowSuccessModal(true);
         
         // 성공 모달 표시
-        console.log('✅ 업로드 성공! 포인트 및 뱃지 체크 시작...');
+        console.log('✅ 업로드 성공! 뱃지 & 타이틀 체크 시작...');
         
-        // 포인트 획득 시도
-        const pointResult = tryEarnPoints('게시물 작성', uploadedPost.id);
-        if (pointResult.success) {
-          notifyPoints(pointResult.points, '게시물 작성');
-        } else if (pointResult.message && pointResult.reason !== 'cooldown') {
-          setTimeout(() => alert(`⚠️ ${pointResult.message}`), 500);
-        }
-        
-        // localStorage 저장 후 충분한 지연을 두고 뱃지 확인
+        // localStorage 저장 후 충분한 지연을 두고 뱃지 & 타이틀 확인
         setTimeout(() => {
           console.log('⏰ 뱃지 체크 타이머 실행');
+          
+          // 경험치 획득
+          const expResult = gainExp('사진 업로드');
+          if (expResult.levelUp) {
+            console.log(`🎉 레벨업! Lv.${expResult.newLevel}`);
+          }
+          
+          // 24시간 타이틀 체크
+          const earnedTitle = checkAndAwardTitles(user.id);
+          if (earnedTitle) {
+            console.log(`👑 24시간 타이틀 획득: ${earnedTitle.name}`);
+            gainExp('24시간 타이틀'); // 타이틀 경험치
+          }
+          
           // 뱃지 확인 및 획득
           const earnedBadge = checkAndAwardBadge();
           
@@ -504,9 +527,9 @@ const UploadScreen = () => {
   }, [formData, user, navigate, checkAndAwardBadge]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <header className="sticky top-0 z-10 flex h-16 items-center border-b border-subtle-light/50 dark:border-subtle-dark/50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm px-4">
+    <div className="screen-layout bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark">
+      <div className="screen-content">
+        <header className="screen-header flex h-16 items-center border-b border-subtle-light/50 dark:border-subtle-dark/50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm px-4">
           <button 
             onClick={() => navigate(-1)}
             className="flex size-10 shrink-0 items-center justify-center rounded-full text-text-light dark:text-text-dark"
@@ -609,25 +632,61 @@ const UploadScreen = () => {
                 </div>
               </label>
               
+              {/* AI 분석 중 표시 */}
+              {loadingAITags && (
+                <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      🤖 AI가 이미지를 분석하고 있습니다...
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* AI 분석 결과 - 카테고리 표시 */}
+              {!loadingAITags && formData.aiCategoryName && formData.images.length > 0 && (
+                <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{formData.aiCategoryIcon}</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-0.5">
+                        🤖 AI 자동 분류
+                      </p>
+                      <p className="text-base font-bold text-blue-900 dark:text-blue-100">
+                        {formData.aiCategoryName}
+                      </p>
+                    </div>
+                    <span className="text-xs bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-3 py-1.5 rounded-full font-bold">
+                      자동
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               {/* AI 추천 태그 */}
-              {autoTags.length > 0 && (
+              {!loadingAITags && autoTags.length > 0 && (
                 <div className="mt-3">
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2 flex items-center gap-1">
                     <span className="material-symbols-outlined text-base">auto_awesome</span>
-                    <span>AI 추천 태그</span>
+                    <span className="font-semibold">AI 추천 태그</span>
+                    <span className="text-xs text-zinc-500">탭해서 추가</span>
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {autoTags.map((tag) => (
                       <button
                         key={tag}
                         onClick={() => addAutoTag(tag)}
-                        className="flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-primary/10 dark:hover:bg-primary/20 py-1.5 px-3 text-sm text-zinc-700 dark:text-zinc-300 hover:text-primary dark:hover:text-orange-300 transition-colors border border-zinc-200 dark:border-zinc-700"
+                        className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 hover:from-primary/20 hover:to-primary/10 py-2 px-4 text-sm font-semibold text-purple-700 dark:text-purple-300 hover:text-primary dark:hover:text-orange-300 transition-all border-2 border-purple-200 dark:border-purple-700 hover:border-primary hover:scale-105 active:scale-95 shadow-sm"
                       >
                         <span>{tag}</span>
                         <span className="material-symbols-outlined text-base">add_circle</span>
                       </button>
                     ))}
                   </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-2">
+                    💡 AI가 이미지를 분석해서 자동으로 생성한 태그입니다
+                  </p>
                 </div>
               )}
               
@@ -791,7 +850,7 @@ const UploadScreen = () => {
                 {earnedBadge.name || earnedBadge}
               </p>
               
-              {/* 난이도 & 포인트 */}
+              {/* 난이도 */}
               <div className="flex items-center justify-center gap-3 mb-4">
                 <div className={`px-3 py-1 rounded-full text-sm font-bold ${
                   earnedBadge.difficulty === '상' ? 'bg-purple-500 text-white' :
@@ -799,9 +858,6 @@ const UploadScreen = () => {
                   'bg-green-500 text-white'
                 }`}>
                   난이도: {earnedBadge.difficulty || '중'}
-                </div>
-                <div className="px-3 py-1 rounded-full bg-primary text-white text-sm font-bold">
-                  +{earnedBadge.points || 100}P
                 </div>
               </div>
               
@@ -849,6 +905,9 @@ const UploadScreen = () => {
 };
 
 export default UploadScreen;
+
+
+
 
 
 

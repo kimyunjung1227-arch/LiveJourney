@@ -16,14 +16,8 @@ const WelcomeScreen = () => {
       const timer = setTimeout(() => {
         try {
           const existingPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-          if (existingPosts.length < 50) {
-            console.log('📦 [개발 모드] Mock 데이터 생성 중...');
-            const needCount = 50 - existingPosts.length;
-            seedMockData(needCount);
-            console.log(`✅ [개발 모드] ${needCount}개 생성 완료!`);
-          } else {
-            console.log(`✅ [개발 모드] Mock 데이터 충분 (${existingPosts.length}개)`);
-          }
+          // Mock 데이터 생성 비활성화 - 프로덕션 모드
+          console.log(`📊 현재 게시물: ${existingPosts.length}개`);
         } catch (error) {
           console.error('Mock 데이터 생성 오류:', error);
         }
@@ -37,7 +31,11 @@ const WelcomeScreen = () => {
 
   const handleStart = () => {
     // "앱 시작하기" 버튼 클릭 시 - 무조건 소셜 로그인 화면으로
-    console.log('🚀 앱 시작하기 버튼 클릭 → 소셜 로그인 화면으로 이동');
+    console.log('🚀 앱 시작하기 버튼 클릭 → 로그인 화면으로 이동');
+    
+    // 로그인 화면을 보기 위한 플래그 설정 (자동 리다이렉트 방지)
+    sessionStorage.setItem('showLoginScreen', 'true');
+    
     navigate('/start');
   };
 
@@ -67,6 +65,10 @@ const WelcomeScreen = () => {
 };
 
 export default WelcomeScreen;
+
+
+
+
 
 
 

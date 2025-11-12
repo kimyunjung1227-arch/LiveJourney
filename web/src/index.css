@@ -36,7 +36,7 @@ body {
   margin: 0 auto;
 }
 
-/* 핸드폰 프레임 스타일 - Galaxy S25 */
+/* 핸드폰 프레임 스타일 - Galaxy S25 (360px × 780px) */
 .app-container {
   width: 100%;
   max-width: 360px;
@@ -53,19 +53,49 @@ body {
     inset 0 0 8px rgba(255, 255, 255, 0.15);
   display: flex;
   flex-direction: column;
+  /* 시스템 UI 안전 영역 확보 */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* 노치 제거 - 상태바로 대체 */
-
-/* 페이지 래퍼 - 스크롤 영역 (StatusBar 아래에만 표시) */
+/* 페이지 래퍼 - 표준 레이아웃 구조 */
 .page-wrapper {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
+  width: 100%;
   position: relative;
-  /* StatusBar 아래 영역만 사용 */
-  max-height: calc(100% - 44px);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 표준 화면 레이아웃: 모든 화면에서 동일한 구조 */
+.screen-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  /* 시스템 UI 영역 침범 방지 */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.screen-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.screen-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: inherit;
+}
+
+.screen-body {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* BottomNavigation + 하단 safe-area */
 }
 
 /* 모든 페이지의 안전 영역 확보 */
@@ -77,32 +107,16 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* StatusBar 영역 침범 방지 */
-.page-wrapper > * {
-  /* 페이지 내부 요소가 StatusBar를 침범하지 않도록 */
-  position: relative;
-}
-
-/* fixed, absolute 요소도 StatusBar 아래에만 표시 */
-.page-wrapper .fixed,
-.page-wrapper .absolute {
-  top: 0 !important;
-}
-
-/* full height 페이지도 StatusBar 영역 제외 */
-.page-wrapper .h-full,
-.page-wrapper .min-h-screen {
-  max-height: 100% !important;
-}
-
 /* 페이지 래퍼 내부 스크롤바 완전히 숨기기 */
-.page-wrapper::-webkit-scrollbar {
+.page-wrapper::-webkit-scrollbar,
+.screen-content::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
 }
 
-.page-wrapper {
+.page-wrapper,
+.screen-content {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
@@ -265,35 +279,3 @@ img {
 .animate-progress {
   animation: progress 2s linear;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

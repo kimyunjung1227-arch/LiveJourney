@@ -544,8 +544,9 @@ export const generateMockUploads = (count = 50) => {
       address: `${region} ${detailedLocation} ${Math.floor(Math.random() * 100) + 1}번길 ${Math.floor(Math.random() * 50) + 1}`, // 더 상세한 주소!
       tags: tags,
       note: `${detailedLocation}에서의 아름다운 순간! ${categoryData.name}을 공유합니다.`,
-      time: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      timeLabel: time,
+      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(), // 실제 timestamp ⭐
+      createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(), // 호환성
+      timeLabel: time, // 임시 호환성 (동적 계산으로 대체됨)
       user: `여행자${Math.floor(Math.random() * 100)}`,
       likes: Math.floor(Math.random() * 50),
       isNew: i < 5, // 최근 5개만 NEW 표시
@@ -598,8 +599,9 @@ export const generateMockUploadsForRegion = (region, count = 20) => {
         location: region,
         tags: tags,
         note: `${region}의 아름다운 ${categoryData.name}을 담았습니다!`,
-        time: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        timeLabel: time,
+        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(), // 실제 timestamp ⭐
+        createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        timeLabel: time, // 임시 호환성
         user: `여행자${Math.floor(Math.random() * 100)}`,
         likes: Math.floor(Math.random() * 50),
         isNew: Math.random() > 0.8,
@@ -785,8 +787,9 @@ export const seedMockData = (totalCount = 100) => {
         note: personalNote,
         content: personalNote,
         qnaList: qnaList,
-        time: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        timeLabel: time,
+        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(), // 실제 timestamp ⭐
+        createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        timeLabel: time, // 임시 호환성
         user: `여행자${Math.floor(Math.random() * 100)}`,
         likes: Math.floor(Math.random() * 50),
         likesCount: Math.floor(Math.random() * 50),
@@ -1056,6 +1059,8 @@ export default {
   clearMockData,
   getMockDataStats
 };
+
+
 
 
 

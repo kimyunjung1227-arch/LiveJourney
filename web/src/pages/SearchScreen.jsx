@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { seedMockData } from '../utils/mockUploadData';
+import { getRegionDefaultImage, getRegionDisplayImage } from '../utils/regionDefaultImages';
 
 const SearchScreen = () => {
   const navigate = useNavigate();
@@ -26,76 +27,76 @@ const SearchScreen = () => {
   // 해시태그 목록 (메모이제이션)
   const hashtags = useMemo(() => ['전체', '바다', '역사', '산', '도시', '맛집', '자연', '카페', '전통', '힐링'], []);
 
-  // 추천 지역 데이터 (메모이제이션)
+  // 추천 지역 데이터 (메모이제이션) - 기본 이미지는 getRegionDefaultImage 사용
   const recommendedRegions = useMemo(() => [
-    { id: 1, name: '서울', image: 'https://images.unsplash.com/photo-1601655742134-501c210f1b1a?w=400', keywords: ['도시', '쇼핑', '명동', '강남', '홍대', '경복궁', '궁궐', '한강', '야경', '카페', '맛집'] },
-    { id: 2, name: '부산', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '해변', '해운대', '광안리', '야경', '횟집', '수산시장', '자갈치', '항구', '서핑'] },
-    { id: 3, name: '대구', image: 'https://images.unsplash.com/photo-1583470790878-4c4196c26feb?w=400', keywords: ['도시', '근대', '골목', '김광석길', '동성로', '쇼핑', '약령시', '팔공산', '치맥', '맥주'] },
-    { id: 4, name: '인천', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['차이나타운', '짜장면', '월미도', '야경', '인천공항', '바다', '항구', '송도', '근대'] },
-    { id: 5, name: '광주', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['도시', '무등산', '양동시장', '충장로', '예술', '문화', '민주화', '역사'] },
-    { id: 6, name: '대전', image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400', keywords: ['도시', '과학', '엑스포', '성심당', '빵', '한밭수목원', '대청호', '계족산'] },
-    { id: 7, name: '울산', image: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400', keywords: ['공업', '항구', '대왕암공원', '간절곶', '일출', '고래', '울산대교', '태화강'] },
-    { id: 8, name: '세종', image: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400', keywords: ['행정', '정부', '신도시', '계획도시', '공원', '호수공원', '도담동'] },
-    { id: 9, name: '수원', image: 'https://images.unsplash.com/photo-1572262708387-7b1b1b1b1b1b?w=400', keywords: ['화성', '성곽', '수원갈비', '행궁', '화성행궁', '전통', '맛집'] },
-    { id: 10, name: '용인', image: 'https://images.unsplash.com/photo-1572262708387-7b1b1b1b1b1b?w=400', keywords: ['에버랜드', '놀이공원', '민속촌', '한국민속촌', '가족'] },
-    { id: 11, name: '성남', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['도시', '판교', 'IT', '테크노', '카페'] },
-    { id: 12, name: '고양', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['일산', '호수공원', '킨텍스', '전시', '꽃축제'] },
-    { id: 13, name: '부천', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['도시', '만화박물관', '애니메이션', '영화'] },
-    { id: 14, name: '안양', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['도시', '안양천', '예술공원'] },
-    { id: 15, name: '파주', image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400', keywords: ['헤이리', '출판단지', '임진각', 'DMZ', '예술', '북카페'] },
-    { id: 16, name: '평택', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['항구', '미군기지', '송탄'] },
-    { id: 17, name: '화성', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['융건릉', '용주사', '제부도', '바다'] },
-    { id: 18, name: '김포', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['공항', '김포공항', '한강', '애기봉'] },
-    { id: 19, name: '광명', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['동굴', '광명동굴', 'KTX'] },
-    { id: 20, name: '이천', image: 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=400', keywords: ['도자기', '쌀', '온천', '세라피아'] },
-    { id: 21, name: '양평', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['자연', '두물머리', '세미원', '힐링', '강', '수목원'] },
-    { id: 22, name: '가평', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['남이섬', '쁘띠프랑스', '아침고요수목원', '자연', '힐링', '계곡'] },
-    { id: 23, name: '포천', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['아트밸리', '허브아일랜드', '산정호수', '자연'] },
-    { id: 24, name: '춘천', image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400', keywords: ['닭갈비', '호수', '남이섬', '소양강', '스카이워크', '맛집'] },
-    { id: 25, name: '강릉', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '커피', '카페', '경포대', '정동진', '일출', '해변', '순두부'] },
-    { id: 26, name: '속초', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '설악산', '산', '등산', '오징어', '수산시장', '아바이마을', '회'] },
-    { id: 27, name: '원주', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['치악산', '등산', '산', '자연'] },
-    { id: 28, name: '동해', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '해변', '추암', '촛대바위', '일출'] },
-    { id: 29, name: '태백', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['산', '탄광', '눈꽃축제', '겨울', '스키'] },
-    { id: 30, name: '삼척', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '동굴', '환선굴', '대금굴', '해변'] },
-    { id: 31, name: '평창', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['스키', '겨울', '올림픽', '산', '용평'] },
-    { id: 32, name: '양양', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '서핑', '해변', '낙산사', '하조대'] },
-    { id: 33, name: '청주', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['도시', '직지', '인쇄', '상당산성', '문화'] },
-    { id: 34, name: '충주', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['호수', '충주호', '탄금대', '사과', '자연'] },
-    { id: 35, name: '제천', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['약초', '한방', '청풍호', '의림지', '자연'] },
-    { id: 36, name: '천안', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['호두과자', '독립기념관', '역사', '맛집'] },
-    { id: 37, name: '아산', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['온양온천', '온천', '현충사', '이순신', '역사'] },
-    { id: 38, name: '공주', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['역사', '백제', '공산성', '무령왕릉', '전통', '문화재'] },
-    { id: 39, name: '보령', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '머드', '축제', '해수욕장', '대천'] },
-    { id: 40, name: '서산', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '간월암', '마애삼존불', '석불', '역사'] },
-    { id: 41, name: '당진', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '왜목마을', '일출', '일몰'] },
-    { id: 42, name: '부여', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['역사', '백제', '궁남지', '정림사지', '문화재', '전통'] },
-    { id: 43, name: '전주', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['한옥', '전통', '한옥마을', '비빔밥', '콩나물국밥', '맛집', '한복'] },
-    { id: 44, name: '군산', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['근대', '역사', '이성당', '빵', '항구', '경암동'] },
-    { id: 45, name: '익산', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['역사', '백제', '미륵사지', '보석', '문화재'] },
-    { id: 46, name: '정읍', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['내장산', '단풍', '산', '등산', '자연'] },
-    { id: 47, name: '남원', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['춘향', '전통', '광한루', '지리산', '산'] },
-    { id: 48, name: '목포', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '항구', '유달산', '갓바위', '회', '해산물'] },
-    { id: 49, name: '여수', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '밤바다', '야경', '낭만', '케이블카', '오동도', '향일암'] },
-    { id: 50, name: '순천', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['순천만', '정원', '갈대', '습지', '자연', '생태'] },
-    { id: 51, name: '광양', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['매화', '꽃', '섬진강', '불고기', '맛집'] },
-    { id: 52, name: '담양', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['대나무', '죽녹원', '메타세쿼이아', '자연', '힐링'] },
-    { id: 53, name: '보성', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['녹차', '차밭', '자연', '힐링', '드라이브'] },
-    { id: 54, name: '포항', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '호미곶', '일출', '과메기', '회', '항구'] },
-    { id: 55, name: '경주', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['역사', '문화재', '불국사', '석굴암', '첨성대', '신라', '전통'] },
-    { id: 56, name: '구미', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['공업', 'IT', '도시'] },
-    { id: 57, name: '안동', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['하회마을', '전통', '한옥', '탈춤', '간고등어', '역사'] },
-    { id: 58, name: '김천', image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=400', keywords: ['직지사', '산', '사찰', '포도'] },
-    { id: 59, name: '영주', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['부석사', '소수서원', '사찰', '역사', '전통'] },
-    { id: 60, name: '창원', image: 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=400', keywords: ['도시', '공업', '진해', '벚꽃', '축제'] },
-    { id: 61, name: '진주', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['진주성', '역사', '비빔밥', '맛집', '남강'] },
-    { id: 62, name: '통영', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '케이블카', '한려수도', '회', '해산물', '섬'] },
-    { id: 63, name: '사천', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '해변', '항공', '공항'] },
-    { id: 64, name: '김해', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['가야', '역사', '공항', '김해공항', '수로왕릉'] },
-    { id: 65, name: '거제', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '섬', '해금강', '외도', '조선소'] },
-    { id: 66, name: '양산', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400', keywords: ['통도사', '사찰', '신불산', '산', '자연'] },
-    { id: 67, name: '제주', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['섬', '바다', '한라산', '오름', '돌하르방', '흑돼지', '감귤', '휴양', '힐링'] },
-    { id: 68, name: '서귀포', image: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400', keywords: ['바다', '섬', '폭포', '정방폭포', '천지연', '감귤', '자연'] }
+    { id: 1, name: '서울', image: getRegionDefaultImage('서울'), keywords: ['도시', '쇼핑', '명동', '강남', '홍대', '경복궁', '궁궐', '한강', '야경', '카페', '맛집'] },
+    { id: 2, name: '부산', image: getRegionDefaultImage('부산'), keywords: ['바다', '해변', '해운대', '광안리', '야경', '횟집', '수산시장', '자갈치', '항구', '서핑'] },
+    { id: 3, name: '대구', image: getRegionDefaultImage('대구'), keywords: ['도시', '근대', '골목', '김광석길', '동성로', '쇼핑', '약령시', '팔공산', '치맥', '맥주'] },
+    { id: 4, name: '인천', image: getRegionDefaultImage('인천'), keywords: ['차이나타운', '짜장면', '월미도', '야경', '인천공항', '바다', '항구', '송도', '근대'] },
+    { id: 5, name: '광주', image: getRegionDefaultImage('광주'), keywords: ['도시', '무등산', '양동시장', '충장로', '예술', '문화', '민주화', '역사'] },
+    { id: 6, name: '대전', image: getRegionDefaultImage('대전'), keywords: ['도시', '과학', '엑스포', '성심당', '빵', '한밭수목원', '대청호', '계족산'] },
+    { id: 7, name: '울산', image: getRegionDefaultImage('울산'), keywords: ['공업', '항구', '대왕암공원', '간절곶', '일출', '고래', '울산대교', '태화강'] },
+    { id: 8, name: '세종', image: getRegionDefaultImage('세종'), keywords: ['행정', '정부', '신도시', '계획도시', '공원', '호수공원', '도담동'] },
+    { id: 9, name: '수원', image: getRegionDefaultImage('수원'), keywords: ['화성', '성곽', '수원갈비', '행궁', '화성행궁', '전통', '맛집'] },
+    { id: 10, name: '용인', image: getRegionDefaultImage('용인'), keywords: ['에버랜드', '놀이공원', '민속촌', '한국민속촌', '가족'] },
+    { id: 11, name: '성남', image: getRegionDefaultImage('성남'), keywords: ['도시', '판교', 'IT', '테크노', '카페'] },
+    { id: 12, name: '고양', image: getRegionDefaultImage('고양'), keywords: ['일산', '호수공원', '킨텍스', '전시', '꽃축제'] },
+    { id: 13, name: '부천', image: getRegionDefaultImage('부천'), keywords: ['도시', '만화박물관', '애니메이션', '영화'] },
+    { id: 14, name: '안양', image: getRegionDefaultImage('안양'), keywords: ['도시', '안양천', '예술공원'] },
+    { id: 15, name: '파주', image: getRegionDefaultImage('파주'), keywords: ['헤이리', '출판단지', '임진각', 'DMZ', '예술', '북카페'] },
+    { id: 16, name: '평택', image: getRegionDefaultImage('평택'), keywords: ['항구', '미군기지', '송탄'] },
+    { id: 17, name: '화성', image: getRegionDefaultImage('화성'), keywords: ['융건릉', '용주사', '제부도', '바다'] },
+    { id: 18, name: '김포', image: getRegionDefaultImage('김포'), keywords: ['공항', '김포공항', '한강', '애기봉'] },
+    { id: 19, name: '광명', image: getRegionDefaultImage('광명'), keywords: ['동굴', '광명동굴', 'KTX'] },
+    { id: 20, name: '이천', image: getRegionDefaultImage('이천'), keywords: ['도자기', '쌀', '온천', '세라피아'] },
+    { id: 21, name: '양평', image: getRegionDefaultImage('양평'), keywords: ['자연', '두물머리', '세미원', '힐링', '강', '수목원'] },
+    { id: 22, name: '가평', image: getRegionDefaultImage('가평'), keywords: ['남이섬', '쁘띠프랑스', '아침고요수목원', '자연', '힐링', '계곡'] },
+    { id: 23, name: '포천', image: getRegionDefaultImage('포천'), keywords: ['아트밸리', '허브아일랜드', '산정호수', '자연'] },
+    { id: 24, name: '춘천', image: getRegionDefaultImage('춘천'), keywords: ['닭갈비', '호수', '남이섬', '소양강', '스카이워크', '맛집'] },
+    { id: 25, name: '강릉', image: getRegionDefaultImage('강릉'), keywords: ['바다', '커피', '카페', '경포대', '정동진', '일출', '해변', '순두부'] },
+    { id: 26, name: '속초', image: getRegionDefaultImage('속초'), keywords: ['바다', '설악산', '산', '등산', '오징어', '수산시장', '아바이마을', '회'] },
+    { id: 27, name: '원주', image: getRegionDefaultImage('원주'), keywords: ['치악산', '등산', '산', '자연'] },
+    { id: 28, name: '동해', image: getRegionDefaultImage('동해'), keywords: ['바다', '해변', '추암', '촛대바위', '일출'] },
+    { id: 29, name: '태백', image: getRegionDefaultImage('태백'), keywords: ['산', '탄광', '눈꽃축제', '겨울', '스키'] },
+    { id: 30, name: '삼척', image: getRegionDefaultImage('삼척'), keywords: ['바다', '동굴', '환선굴', '대금굴', '해변'] },
+    { id: 31, name: '평창', image: getRegionDefaultImage('평창'), keywords: ['스키', '겨울', '올림픽', '산', '용평'] },
+    { id: 32, name: '양양', image: getRegionDefaultImage('양양'), keywords: ['바다', '서핑', '해변', '낙산사', '하조대'] },
+    { id: 33, name: '청주', image: getRegionDefaultImage('청주'), keywords: ['도시', '직지', '인쇄', '상당산성', '문화'] },
+    { id: 34, name: '충주', image: getRegionDefaultImage('충주'), keywords: ['호수', '충주호', '탄금대', '사과', '자연'] },
+    { id: 35, name: '제천', image: getRegionDefaultImage('제천'), keywords: ['약초', '한방', '청풍호', '의림지', '자연'] },
+    { id: 36, name: '천안', image: getRegionDefaultImage('천안'), keywords: ['호두과자', '독립기념관', '역사', '맛집'] },
+    { id: 37, name: '아산', image: getRegionDefaultImage('아산'), keywords: ['온양온천', '온천', '현충사', '이순신', '역사'] },
+    { id: 38, name: '공주', image: getRegionDefaultImage('공주'), keywords: ['역사', '백제', '공산성', '무령왕릉', '전통', '문화재'] },
+    { id: 39, name: '보령', image: getRegionDefaultImage('보령'), keywords: ['바다', '머드', '축제', '해수욕장', '대천'] },
+    { id: 40, name: '서산', image: getRegionDefaultImage('서산'), keywords: ['바다', '간월암', '마애삼존불', '석불', '역사'] },
+    { id: 41, name: '당진', image: getRegionDefaultImage('당진'), keywords: ['바다', '왜목마을', '일출', '일몰'] },
+    { id: 42, name: '부여', image: getRegionDefaultImage('부여'), keywords: ['역사', '백제', '궁남지', '정림사지', '문화재', '전통'] },
+    { id: 43, name: '전주', image: getRegionDefaultImage('전주'), keywords: ['한옥', '전통', '한옥마을', '비빔밥', '콩나물국밥', '맛집', '한복'] },
+    { id: 44, name: '군산', image: getRegionDefaultImage('군산'), keywords: ['근대', '역사', '이성당', '빵', '항구', '경암동'] },
+    { id: 45, name: '익산', image: getRegionDefaultImage('익산'), keywords: ['역사', '백제', '미륵사지', '보석', '문화재'] },
+    { id: 46, name: '정읍', image: getRegionDefaultImage('정읍'), keywords: ['내장산', '단풍', '산', '등산', '자연'] },
+    { id: 47, name: '남원', image: getRegionDefaultImage('남원'), keywords: ['춘향', '전통', '광한루', '지리산', '산'] },
+    { id: 48, name: '목포', image: getRegionDefaultImage('목포'), keywords: ['바다', '항구', '유달산', '갓바위', '회', '해산물'] },
+    { id: 49, name: '여수', image: getRegionDefaultImage('여수'), keywords: ['바다', '밤바다', '야경', '낭만', '케이블카', '오동도', '향일암'] },
+    { id: 50, name: '순천', image: getRegionDefaultImage('순천'), keywords: ['순천만', '정원', '갈대', '습지', '자연', '생태'] },
+    { id: 51, name: '광양', image: getRegionDefaultImage('광양'), keywords: ['매화', '꽃', '섬진강', '불고기', '맛집'] },
+    { id: 52, name: '담양', image: getRegionDefaultImage('담양'), keywords: ['대나무', '죽녹원', '메타세쿼이아', '자연', '힐링'] },
+    { id: 53, name: '보성', image: getRegionDefaultImage('보성'), keywords: ['녹차', '차밭', '자연', '힐링', '드라이브'] },
+    { id: 54, name: '포항', image: getRegionDefaultImage('포항'), keywords: ['바다', '호미곶', '일출', '과메기', '회', '항구'] },
+    { id: 55, name: '경주', image: getRegionDefaultImage('경주'), keywords: ['역사', '문화재', '불국사', '석굴암', '첨성대', '신라', '전통'] },
+    { id: 56, name: '구미', image: getRegionDefaultImage('구미'), keywords: ['공업', 'IT', '도시'] },
+    { id: 57, name: '안동', image: getRegionDefaultImage('안동'), keywords: ['하회마을', '전통', '한옥', '탈춤', '간고등어', '역사'] },
+    { id: 58, name: '김천', image: getRegionDefaultImage('김천'), keywords: ['직지사', '산', '사찰', '포도'] },
+    { id: 59, name: '영주', image: getRegionDefaultImage('영주'), keywords: ['부석사', '소수서원', '사찰', '역사', '전통'] },
+    { id: 60, name: '창원', image: getRegionDefaultImage('창원'), keywords: ['도시', '공업', '진해', '벚꽃', '축제'] },
+    { id: 61, name: '진주', image: getRegionDefaultImage('진주'), keywords: ['진주성', '역사', '비빔밥', '맛집', '남강'] },
+    { id: 62, name: '통영', image: getRegionDefaultImage('통영'), keywords: ['바다', '케이블카', '한려수도', '회', '해산물', '섬'] },
+    { id: 63, name: '사천', image: getRegionDefaultImage('사천'), keywords: ['바다', '해변', '항공', '공항'] },
+    { id: 64, name: '김해', image: getRegionDefaultImage('김해'), keywords: ['가야', '역사', '공항', '김해공항', '수로왕릉'] },
+    { id: 65, name: '거제', image: getRegionDefaultImage('거제'), keywords: ['바다', '섬', '해금강', '외도', '조선소'] },
+    { id: 66, name: '양산', image: getRegionDefaultImage('양산'), keywords: ['통도사', '사찰', '신불산', '산', '자연'] },
+    { id: 67, name: '제주', image: getRegionDefaultImage('제주'), keywords: ['섬', '바다', '한라산', '오름', '돌하르방', '흑돼지', '감귤', '휴양', '힐링'] },
+    { id: 68, name: '서귀포', image: getRegionDefaultImage('서귀포'), keywords: ['바다', '섬', '폭포', '정방폭포', '천지연', '감귤', '자연'] }
   ], []);
 
   // 한글 초성 추출 함수 (useCallback)
@@ -117,19 +118,21 @@ const SearchScreen = () => {
   // 초성 매칭 함수 (useCallback)
   const matchChosung = useCallback((text, search) => {
     const textChosung = getChosung(text);
-    return textChosung.includes(search);
+    const searchChosung = getChosung(search);
+    
+    // 초성 매칭: 검색어의 초성이 지역명 초성에 포함되는지
+    const matches = textChosung.includes(searchChosung) || textChosung.includes(search);
+    
+    return matches;
   }, [getChosung]);
 
   // 지역별 대표 사진 로드 (useCallback)
   const loadRegionPhotos = useCallback(() => {
     let uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
-    // Mock 데이터가 없으면 즉시 생성!
+    // Mock 데이터 생성 비활성화 - 프로덕션 모드
     if (uploadedPosts.length === 0) {
-      console.log('⚠️ Mock 데이터가 없습니다! 즉시 1000개 생성...');
-      seedMockData(1000);
-      uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-      console.log(`✅ ${uploadedPosts.length}개 Mock 데이터 생성 완료!`);
+      console.log('📭 업로드된 게시물이 없습니다.');
     }
     
     const photosByRegion = {};
@@ -144,6 +147,7 @@ const SearchScreen = () => {
                postLocation === regionName;
       });
       
+      // 업로드된 사진이 있으면 사용, 없으면 기본 이미지 사용
       if (regionPosts.length > 0) {
         const randomIndex = Math.floor(Math.random() * Math.min(regionPosts.length, 5));
         const representativePost = regionPosts[randomIndex];
@@ -153,13 +157,24 @@ const SearchScreen = () => {
           category: representativePost.categoryName,
           detailedLocation: representativePost.detailedLocation || representativePost.placeName,
           count: regionPosts.length,
-          time: representativePost.timeLabel || '방금'
+          time: representativePost.timeLabel || '방금',
+          hasUploadedPhoto: true
+        };
+      } else {
+        // 업로드된 사진이 없으면 기본 대표 이미지 사용
+        photosByRegion[regionName] = {
+          image: getRegionDefaultImage(regionName),
+          category: '추천 장소',
+          detailedLocation: `${regionName}의 아름다운 풍경`,
+          count: 0,
+          time: null,
+          hasUploadedPhoto: false
         };
       }
     });
 
     setRegionRepresentativePhotos(photosByRegion);
-    console.log(`🖼️ 지역별 대표 사진 로드: ${Object.keys(photosByRegion).length}개 지역`);
+    console.log(`🖼️ 지역별 대표 사진 로드: ${Object.keys(photosByRegion).length}개 지역 (업로드: ${Object.values(photosByRegion).filter(p => p.hasUploadedPhoto).length}개, 기본: ${Object.values(photosByRegion).filter(p => !p.hasUploadedPhoto).length}개)`);
   }, [recommendedRegions]);
 
   // 검색어 입력 핸들러 (useCallback)
@@ -167,13 +182,24 @@ const SearchScreen = () => {
     const value = e.target.value;
     setSearchQuery(value);
     
+    console.log('🔍 검색 입력:', value);
+    
     if (value.trim()) {
       const searchTerm = value.toLowerCase();
       const filtered = recommendedRegions.filter(region => {
         const matchesName = region.name.toLowerCase().includes(searchTerm);
         const matchesChosung = matchChosung(region.name, value);
-        return matchesName || matchesChosung;
+        const matches = matchesName || matchesChosung;
+        
+        if (matches) {
+          console.log(`  ✅ 매칭: ${region.name} (이름:${matchesName}, 초성:${matchesChosung})`);
+        }
+        
+        return matches;
       });
+      
+      console.log(`📊 검색 결과: ${filtered.length}개`, filtered.map(r => r.name));
+      
       setFilteredRegions(filtered);
       setShowSuggestions(true);
     } else {
@@ -332,10 +358,10 @@ const SearchScreen = () => {
   }, []);
 
   return (
-    <div className="flex h-full w-full flex-col text-text-light dark:text-text-dark bg-background-light dark:bg-background-dark">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+    <div className="screen-layout text-text-light dark:text-text-dark bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
         {/* 헤더 */}
-        <div className="sticky top-0 z-10 flex items-center p-4 pb-2 justify-between bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm">
+        <div className="screen-header flex items-center p-4 pb-2 justify-between bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm">
           <button 
             onClick={() => navigate(-1)}
             className="flex size-12 shrink-0 items-center"
@@ -348,8 +374,10 @@ const SearchScreen = () => {
           <div className="flex w-12 items-center justify-end"></div>
         </div>
 
-        {/* 검색창 */}
-        <div ref={searchContainerRef} className="px-4 py-3 relative">
+        {/* 메인 컨텐츠 */}
+        <div className="screen-body">
+          {/* 검색창 + 결과 영역 - sticky */}
+          <div className="px-4 py-3 sticky top-16 z-30 bg-background-light dark:bg-background-dark">
           <form onSubmit={handleSearch}>
             <label className="flex flex-col min-w-40 h-14 w-full">
               <div className="flex w-full flex-1 items-stretch rounded-full h-full">
@@ -371,35 +399,39 @@ const SearchScreen = () => {
             </label>
           </form>
 
-          {/* 자동완성 드롭다운 */}
-          {showSuggestions && filteredRegions.length > 0 && (
-            <div className="absolute top-[72px] left-4 right-4 z-20 bg-white dark:bg-[#2F2418] rounded-2xl shadow-lg ring-1 ring-black/10 dark:ring-white/10 max-h-60 overflow-y-auto">
-              {filteredRegions.map((region) => (
-                <div
-                  key={region.id}
-                  onClick={() => handleSuggestionClick(region.name)}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#3a2d1f] cursor-pointer transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+          {/* 검색 결과 - 검색창 바로 아래 (일반 flow) */}
+          {showSuggestions && (filteredRegions.length > 0 || searchQuery.trim()) && (
+            <div ref={searchContainerRef} className="mt-3">
+              {filteredRegions.length > 0 ? (
+                <div 
+                  className="bg-white dark:bg-[#2F2418] rounded-2xl shadow-2xl ring-2 ring-primary/30 dark:ring-primary/50 overflow-y-auto"
+                  style={{ maxHeight: 'calc(60px * 6)' }}
                 >
-                  <span className="material-symbols-outlined text-primary">location_on</span>
-                  <span className="text-[#1c140d] dark:text-background-light font-medium">
-                    {region.name}
-                  </span>
+                  {filteredRegions.map((region) => (
+                    <div
+                      key={region.id}
+                      onClick={() => handleSuggestionClick(region.name)}
+                      className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 dark:hover:bg-[#3a2d1f] cursor-pointer transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 h-[60px]"
+                    >
+                      <span className="material-symbols-outlined text-primary">location_on</span>
+                      <span className="text-[#1c140d] dark:text-background-light font-semibold text-base">
+                        {region.name}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* 검색 결과 없음 */}
-          {showSuggestions && searchQuery.trim() && filteredRegions.length === 0 && (
-            <div className="absolute top-[72px] left-4 right-4 z-20 bg-white dark:bg-[#2F2418] rounded-2xl shadow-lg ring-1 ring-black/10 dark:ring-white/10 px-4 py-6 text-center">
-              <span className="material-symbols-outlined text-gray-400 text-4xl mb-2">search_off</span>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">검색 결과가 없습니다</p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">다른 검색어를 입력해주세요</p>
+              ) : (
+                <div className="bg-white dark:bg-[#2F2418] rounded-2xl shadow-2xl ring-2 ring-red-300 dark:ring-red-800 px-4 py-6 text-center">
+                  <span className="material-symbols-outlined text-gray-400 text-4xl mb-2">search_off</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">검색 결과가 없습니다</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">다른 검색어를 입력해주세요</p>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* 추천 지역 */}
+        {/* 추천 지역 - 그대로 있음 (검색 결과가 위에 오버레이) */}
         <h2 className="text-[#1c140d] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
           추천 지역
         </h2>
@@ -466,19 +498,19 @@ const SearchScreen = () => {
                 return (
                   <div 
                     key={region.id} 
-                    className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
+                    className="flex h-full flex-col gap-2 rounded-lg w-[280px] flex-shrink-0 cursor-pointer snap-start select-none"
                     onClick={() => handleRegionClickWithDragCheck(region.name)}
                   >
                     <div 
-                      className="relative w-full bg-center bg-no-repeat aspect-[1/1.2] bg-cover rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md"
+                      className="relative w-full bg-center bg-no-repeat aspect-[16/9] bg-cover rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md"
                       style={{ backgroundImage: `url("${displayImage}")` }}
                     >
                       {/* 그라데이션 오버레이 */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3))' }}></div>
                       
-                      {/* 좌측상단: 카테고리 아이콘만 */}
-                      {regionPhoto?.category && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 20 }}>
+                      {/* 좌측상단: 카테고리 아이콘 + 업로드 상태 */}
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', zIndex: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        {regionPhoto?.category && (
                           <span style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -492,13 +524,29 @@ const SearchScreen = () => {
                             boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                           }}>
                             {regionPhoto.category === '개화 상황' && '🌸'}
-                            {regionPhoto.category === '추천 장소' && '🏞️'}
                             {regionPhoto.category === '맛집 정보' && '🍜'}
-                            {regionPhoto.category === '가볼만한곳' && '🗺️'}
-                            {!['개화 상황', '추천 장소', '맛집 정보', '가볼만한곳'].includes(regionPhoto.category) && '📷'}
+                            {(!regionPhoto.category || !['개화 상황', '맛집 정보'].includes(regionPhoto.category)) && '🏞️'}
                           </span>
-                        </div>
-                      )}
+                        )}
+                        
+                        {/* 업로드 카운트 배지 */}
+                        {regionPhoto && regionPhoto.count > 0 && (
+                          <span style={{ 
+                            padding: '4px 10px', 
+                            borderRadius: '12px', 
+                            backgroundColor: 'rgba(102, 126, 234, 0.95)', 
+                            color: 'white',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            📸 {regionPhoto.count}
+                          </span>
+                        )}
+                      </div>
                       
                       {/* 좌측하단: 지역 이름 + 위치정보 + 업로드시간 */}
                       <div style={{ 
@@ -599,6 +647,7 @@ const SearchScreen = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       <BottomNavigation />
@@ -607,6 +656,9 @@ const SearchScreen = () => {
 };
 
 export default SearchScreen;
+
+
+
 
 
 

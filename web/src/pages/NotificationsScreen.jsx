@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
-import { 
-  getNotifications, 
-  markAsRead, 
-  markAllAsRead, 
-  getTimeAgo 
-} from '../utils/notifications';
+import { getNotifications, markAllNotificationsAsRead, markNotificationAsRead, deleteNotification } from '../utils/notifications';
+
+// 간단한 알림 아이콘 컴포넌트
+const NotificationIcon = ({ type }) => {
+  const icons = {
+    badge: 'military_tech',
+    like: 'favorite',
+    comment: 'comment',
+    follow: 'person_add',
+    post: 'photo_camera'
+  };
+  return <span className="material-symbols-outlined">{icons[type] || 'notifications'}</span>;
+};
 
 const NotificationsScreen = () => {
   const navigate = useNavigate();
@@ -19,59 +26,56 @@ const NotificationsScreen = () => {
     loadNotifications();
     
     // 알림 변경 이벤트 리스너
-    const handleNotificationChange = () => {
+    const handleNotificationUpdate = () => {
       loadNotifications();
     };
     
-    window.addEventListener('notificationCountChanged', handleNotificationChange);
-    window.addEventListener('focus', loadNotifications);
+    window.addEventListener('notificationUpdate', handleNotificationUpdate);
     
     return () => {
-      window.removeEventListener('notificationCountChanged', handleNotificationChange);
-      window.removeEventListener('focus', loadNotifications);
+      window.removeEventListener('notificationUpdate', handleNotificationUpdate);
     };
   }, []);
 
   const loadNotifications = () => {
     const notifications = getNotifications();
-    // 시간 포맷 적용
-    const formattedNotifications = notifications.map(n => ({
-      ...n,
-      timeFormatted: getTimeAgo(n.time)
-    }));
-    setAllNotifications(formattedNotifications);
+    setAllNotifications(notifications);
   };
 
+  // 필터링된 알림
   const filteredNotifications = filter === 'unread' 
-    ? allNotifications.filter(n => !n.isRead)
+    ? allNotifications.filter(n => !n.read)
     : allNotifications;
 
-  const unreadCount = allNotifications.filter(n => !n.isRead).length;
-
   const handleNotificationClick = (notification) => {
-    // 알림을 읽음 처리
-    if (!notification.isRead) {
-      markAsRead(notification.id);
+    // 알림 읽음 처리
+    if (!notification.read) {
+      markNotificationAsRead(notification.id);
       loadNotifications();
     }
     
-    // 해당 링크로 이동
+    // 알림 타입에 따라 이동
     if (notification.link) {
       navigate(notification.link);
     }
   };
 
   const handleMarkAllRead = () => {
-    if (unreadCount === 0) {
-      return; // 읽지 않은 알림이 없으면 아무것도 안 함
-    }
-    setShowMarkAllReadModal(true);
-  };
-
-  const confirmMarkAllRead = () => {
-    markAllAsRead();
+    markAllNotificationsAsRead();
     loadNotifications();
     setShowMarkAllReadModal(false);
+    
+    // 알림 카운트 업데이트 이벤트 발생
+    window.dispatchEvent(new Event('notificationCountChanged'));
+  };
+
+  const handleDelete = (notificationId, e) => {
+    e.stopPropagation();
+    deleteNotification(notificationId);
+    loadNotifications();
+    
+    // 알림 카운트 업데이트 이벤트 발생
+    window.dispatchEvent(new Event('notificationCountChanged'));
   };
 
   const cancelMarkAllRead = () => {
@@ -79,54 +83,55 @@ const NotificationsScreen = () => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark">
-      {/* 메인 콘텐츠 - 스크롤 영역 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+    <div className="screen-layout bg-background-light dark:bg-background-dark">
+      <div className="screen-content">
         {/* 헤더 */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark px-4">
+        <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark px-4">
         <button
           onClick={() => navigate('/main')}
           className="flex size-12 shrink-0 items-center justify-start cursor-pointer text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
           <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] text-content-light dark:text-content-dark">
+        <h1 className="flex-1 text-center text-lg font-bold leading-tight tracking-[-0.015em] text-content-light dark:text-content-dark">
           알림
         </h1>
         <button
-          onClick={handleMarkAllRead}
-          className="flex items-center justify-end text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          onClick={() => setShowMarkAllReadModal(true)}
+          disabled={allNotifications.filter(n => !n.read).length === 0}
+          className="flex size-12 shrink-0 items-center justify-end cursor-pointer text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          모두 읽음
+          <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>done_all</span>
         </button>
       </header>
 
       {/* 필터 탭 */}
-      <div className="flex bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
+      <div className="screen-body">
+      <div className="flex gap-2 border-b border-border-light dark:border-border-dark px-4 py-3 bg-surface-light dark:bg-surface-dark">
         <button
           onClick={() => setFilter('all')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
             filter === 'all'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-subtle-light dark:text-subtle-dark'
+              ? 'bg-primary text-white'
+              : 'bg-background-light dark:bg-background-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-primary/10'
           }`}
         >
           전체 ({allNotifications.length})
         </button>
         <button
           onClick={() => setFilter('unread')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
             filter === 'unread'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-subtle-light dark:text-subtle-dark'
+              ? 'bg-primary text-white'
+              : 'bg-background-light dark:bg-background-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-primary/10'
           }`}
         >
-          읽은 알림 ({unreadCount})
+          안 읽음 ({allNotifications.filter(n => !n.read).length})
         </button>
       </div>
 
-        {/* 알림 리스트 */}
-        <main className="flex-grow pb-4">
+      {/* 알림 목록 */}
+      <div className="pb-20">
         {filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4">
             <span className="material-symbols-outlined text-7xl text-gray-300 dark:text-gray-600 mb-4">
@@ -135,96 +140,96 @@ const NotificationsScreen = () => {
             <p className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">
               알림이 없습니다
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-xs">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-xs mb-4">
               {filter === 'unread' 
                 ? '읽은 알림이 없습니다.'
                 : '여행 정보를 공유하고 다른 사용자와 소통하면 알림을 받을 수 있어요!'}
             </p>
             <button
+              onClick={() => navigate('/upload')}
+              className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined">add_a_photo</span>
+              첫 사진 올리기
+            </button>
+            <button
               onClick={() => navigate('/main')}
-              className="mt-6 bg-primary text-white px-6 py-2.5 rounded-full font-semibold hover:bg-primary/90 transition-colors"
+              className="mt-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               둘러보기
             </button>
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="divide-y divide-border-light dark:divide-border-dark">
             {filteredNotifications.map((notification) => (
-              <button
+              <div
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`flex items-start gap-3 p-4 border-b border-border-light dark:border-border-dark hover:bg-surface-subtle-light dark:hover:bg-surface-subtle-dark transition-colors ${
-                  !notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                className={`flex gap-4 px-4 py-4 cursor-pointer hover:bg-surface-subtle-light dark:hover:bg-surface-subtle-dark transition-colors ${
+                  !notification.read ? 'bg-primary/5 dark:bg-primary/10' : ''
                 }`}
               >
-                {/* 아이콘 */}
-                <div className={`flex size-10 shrink-0 items-center justify-center rounded-full ${notification.iconBg}`}>
-                  <span className={`material-symbols-outlined ${notification.iconColor}`} style={{ fontSize: '20px' }}>
-                    {notification.icon}
-                  </span>
+                <div className={`flex size-12 shrink-0 items-center justify-center rounded-full ${
+                  notification.iconBg || 'bg-primary/10'
+                }`}>
+                  <NotificationIcon type={notification.type} />
                 </div>
-
-                {/* 내용 */}
-                <div className="flex-grow text-left">
-                  <p className={`text-sm leading-normal ${
-                    !notification.isRead 
-                      ? 'font-bold text-content-light dark:text-content-dark' 
-                      : 'font-medium text-content-light dark:text-content-dark'
-                  }`}>
-                    {notification.title}
-                  </p>
-                  {notification.message && (
-                    <p className="text-sm text-subtle-light dark:text-subtle-dark mt-1">
-                      {notification.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-subtle-light dark:text-subtle-dark mt-2">
-                    {notification.timeFormatted || notification.time}
-                  </p>
-                </div>
-
-                {/* 읽지 않음 표시 */}
-                {!notification.isRead && (
-                  <div className="flex size-2 shrink-0 items-center justify-center">
-                    <div className="size-2 rounded-full bg-primary"></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-bold text-content-light dark:text-content-dark">
+                      {notification.title}
+                    </h3>
+                    {!notification.read && (
+                      <span className="flex size-2 shrink-0 rounded-full bg-primary mt-1.5"></span>
+                    )}
                   </div>
-                )}
-              </button>
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1 line-clamp-2">
+                    {notification.message}
+                  </p>
+                  <p className="text-xs text-subtle-light dark:text-subtle-dark mt-2">
+                    {notification.time}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => handleDelete(notification.id, e)}
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+                </button>
+              </div>
             ))}
           </div>
         )}
-        </main>
+      </div>
+      </div>
       </div>
 
       <BottomNavigation />
 
-      {/* 모두 읽기 확인 모달 */}
+      {/* 모두 읽음 확인 모달 */}
       {showMarkAllReadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4">
-          <div className="w-full max-w-sm transform flex-col rounded-xl bg-white dark:bg-[#221910] p-6 shadow-2xl transition-all">
-            {/* 제목 */}
-            <h1 className="text-[#181411] dark:text-gray-100 text-[22px] font-bold leading-tight tracking-[-0.015em] text-center pb-3 pt-1">
-              모두 읽음 처리
-            </h1>
-            
-            {/* 내용 */}
-            <p className="text-gray-700 dark:text-gray-300 text-base font-normal leading-normal pb-6 pt-1 px-4 text-center">
-              읽은 알림 <strong className="font-bold text-primary">{unreadCount}개</strong>가 모두 읽음으로 표시됩니다. 계속하시겠습니까?
-            </p>
-            
-            {/* 버튼 그룹 */}
-            <div className="flex w-full flex-row gap-3">
-              <button 
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                모든 알림을 읽음 처리하시겠습니까?
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                안 읽은 알림 {allNotifications.filter(n => !n.read).length}개가 모두 읽음 처리됩니다.
+              </p>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button
                 onClick={cancelMarkAllRead}
-                className="flex flex-1 min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-gray-200 dark:bg-gray-700 text-[#181411] dark:text-gray-200 text-base font-bold leading-normal tracking-[0.015em] hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="flex-1 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                <span className="truncate">취소</span>
+                취소
               </button>
-              <button 
-                onClick={confirmMarkAllRead}
-                className="flex flex-1 min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+              <button
+                onClick={handleMarkAllRead}
+                className="flex-1 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
               >
-                <span className="truncate">확인</span>
+                확인
               </button>
             </div>
           </div>
@@ -235,43 +240,3 @@ const NotificationsScreen = () => {
 };
 
 export default NotificationsScreen;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

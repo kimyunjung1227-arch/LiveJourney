@@ -36,7 +36,12 @@ const BottomNavigation = React.memo(() => {
   }, [location.pathname]);
 
   return (
-    <nav className="flex-shrink-0 flex h-20 items-center justify-around border-t border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+    <nav 
+      className="flex-shrink-0 flex h-20 items-center justify-around border-t border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+      }}
+    >
       <button 
         onClick={() => navigate('/main')}
         className={`flex flex-col items-center gap-1 ${
@@ -89,6 +94,7 @@ const BottomNavigation = React.memo(() => {
 BottomNavigation.displayName = 'BottomNavigation';
 
 export default BottomNavigation;
+
 
 
 

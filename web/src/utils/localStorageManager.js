@@ -117,3 +117,6 @@ export const logLocalStorageStatus = () => {
   console.log(`   - 전체 게시물: ${posts.length}개`);
 };
 
+
+
+
