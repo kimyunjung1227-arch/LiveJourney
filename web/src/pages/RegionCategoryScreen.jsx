@@ -261,7 +261,7 @@ const RegionCategoryScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <div className="screen-header flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <div className="screen-header flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-b border-zinc-200 dark:border-zinc-800 shadow-sm relative z-50">
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}
@@ -293,14 +293,6 @@ const RegionCategoryScreen = () => {
         </div>
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden screen-body">
-        {displayedItems.length > 0 && (
-          <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-              📸 총 <span className="text-primary font-bold">{currentDisplayData.length}</span>개의 사진
-            </p>
-          </div>
-        )}
-
         {displayedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4">
             <span className="material-symbols-outlined text-7xl text-gray-300 dark:text-gray-600 mb-4">photo_camera</span>
@@ -335,7 +327,7 @@ const RegionCategoryScreen = () => {
                   
                   {/* 좌측상단: 카테고리 아이콘만 */}
                   {item.categoryName && (
-                    <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 20 }}>
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
                       <span style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -343,10 +335,9 @@ const RegionCategoryScreen = () => {
                         width: '40px', 
                         height: '40px', 
                         borderRadius: '50%', 
-                        backgroundColor: 'rgba(255,255,255,0.95)', 
-                        fontSize: '20px',
+                        fontSize: '24px',
                         fontWeight: 'bold',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
                       }}>
                         {item.categoryName === '개화 상황' && '🌸'}
                         {item.categoryName === '맛집 정보' && '🍜'}
@@ -375,7 +366,7 @@ const RegionCategoryScreen = () => {
                           textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                           margin: 0
                         }}>
-                          📍 {item.detailedLocation}
+                          {item.detailedLocation}
                         </p>
                       )}
                       {item.time && (
@@ -387,7 +378,7 @@ const RegionCategoryScreen = () => {
                           textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                           margin: 0
                         }}>
-                          ⏰ {item.time}
+                          {item.time}
                         </p>
                       )}
                     </div>

@@ -138,22 +138,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginAsGuest = () => {
-    // 테스트 계정으로 즉시 로그인
-    const testUser = {
-      id: 'test_user_001',
-      email: 'test@livejourney.com',
-      username: '테스트유저',
-      points: 10000,
-      badges: []
-    };
-    
-    localStorage.setItem('token', 'test_token_' + Date.now());
-    localStorage.setItem('user', JSON.stringify(testUser));
-    setUser(testUser);
-    
-    return { success: true };
-  };
 
   const logout = () => {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -206,7 +190,6 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     signup,
-    loginAsGuest,
     logout,
     updateUser,
     socialLogin,
@@ -215,6 +198,8 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+
 
 
 

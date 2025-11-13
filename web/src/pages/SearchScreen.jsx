@@ -11,13 +11,12 @@ const SearchScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredRegions, setFilteredRegions] = useState([]);
-  const [selectedHashtag, setSelectedHashtag] = useState('전체');
   const [recentSearches, setRecentSearches] = useState([]);
   const [regionRepresentativePhotos, setRegionRepresentativePhotos] = useState({});
+  const [showAllRegions, setShowAllRegions] = useState(false);
 
   const recommendedScrollRef = useRef(null);
   const recentScrollRef = useRef(null);
-  const hashtagScrollRef = useRef(null);
   const searchContainerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -25,8 +24,19 @@ const SearchScreen = () => {
   const [currentScrollRef, setCurrentScrollRef] = useState(null);
   const [hasMoved, setHasMoved] = useState(false);
 
-  // 해시태그 목록 (메모이제이션)
-  const hashtags = useMemo(() => ['전체', '바다', '역사', '산', '도시', '맛집', '자연', '카페', '전통', '힐링'], []);
+  // 추천 지역 계산 (사진이 많은 순으로 상위 6개)
+  const topRegions = useMemo(() => {
+    const regionsWithPhotos = Object.entries(regionRepresentativePhotos)
+      .filter(([_, photo]) => photo.hasUploadedPhoto && photo.count > 0)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, showAllRegions ? undefined : 6)
+      .map(([regionName, photo]) => ({
+        name: regionName,
+        ...photo
+      }));
+    
+    return regionsWithPhotos;
+  }, [regionRepresentativePhotos, showAllRegions]);
 
   // 추천 지역 데이터 (메모이제이션) - 기본 이미지는 getRegionDefaultImage 사용
   const recommendedRegions = useMemo(() => [
@@ -324,15 +334,6 @@ const SearchScreen = () => {
     }
   }, [hasMoved, handleRecentSearchClick]);
 
-  // 해시태그 필터링 (useMemo)
-  const filteredRegionsByHashtag = useMemo(() => {
-    if (selectedHashtag === '전체') {
-      return recommendedRegions;
-    }
-    return recommendedRegions.filter(region => 
-      region.keywords.some(keyword => keyword.includes(selectedHashtag))
-    );
-  }, [selectedHashtag, recommendedRegions]);
 
   // URL 파라미터 확인
   useEffect(() => {
@@ -366,7 +367,7 @@ const SearchScreen = () => {
     <div className="screen-layout text-text-light dark:text-text-dark bg-background-light dark:bg-background-dark">
       <div className="screen-content">
         {/* 헤더 */}
-        <div className="screen-header flex items-center p-4 pb-2 justify-between bg-white dark:bg-gray-900 shadow-sm">
+        <div className="screen-header flex items-center p-4 pb-2 justify-between bg-white dark:bg-gray-900 shadow-sm relative z-50">
           <button 
             onClick={() => navigate(-1)}
             className="flex size-12 shrink-0 items-center"
@@ -436,53 +437,19 @@ const SearchScreen = () => {
           )}
         </div>
 
-        {/* 추천 지역 - 그대로 있음 (검색 결과가 위에 오버레이) */}
+        {/* 추천 지역 */}
         <h2 className="text-[#1c140d] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
           추천 지역
         </h2>
 
-        {/* 해시태그 필터 - 드래그 슬라이드 가능 */}
-        <div 
-          ref={hashtagScrollRef}
-          onMouseDown={(e) => handleMouseDown(e, hashtagScrollRef)}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          onTouchStart={(e) => {
-            const touch = e.touches[0];
-            handleMouseDown({ pageX: touch.pageX, preventDefault: () => {} }, hashtagScrollRef);
-          }}
-          onTouchMove={(e) => {
-            const touch = e.touches[0];
-            handleMouseMove({ pageX: touch.pageX, preventDefault: () => {} });
-          }}
-          onTouchEnd={handleMouseUp}
-          className="flex gap-2 px-4 pb-4 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth cursor-grab active:cursor-grabbing"
-          style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', userSelect: 'none' }}
-        >
-          {hashtags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => !hasMoved && setSelectedHashtag(tag)}
-              className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all snap-start select-none ${
-                selectedHashtag === tag
-                  ? 'bg-primary text-white scale-105 shadow-md'
-                  : 'bg-background-light dark:bg-[#2F2418] text-[#1c140d] dark:text-background-light ring-1 ring-inset ring-black/10 dark:ring-white/10 hover:bg-primary/10 hover:scale-105'
-              }`}
-            >
-              #{tag}
-            </button>
-          ))}
-        </div>
-
-        {filteredRegionsByHashtag.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <span className="material-symbols-outlined text-gray-400 text-5xl mb-3">location_off</span>
-            <p className="text-gray-500 dark:text-gray-400 text-base font-medium">
-              #{selectedHashtag} 관련 지역이 없습니다
+        {topRegions.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <span className="material-symbols-outlined text-gray-400 text-6xl mb-4">explore</span>
+            <p className="text-gray-600 dark:text-gray-400 text-base font-bold mb-2">
+              아직 추천할 지역이 없어요
             </p>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-              다른 해시태그를 선택해보세요
+            <p className="text-gray-400 dark:text-gray-500 text-sm">
+              사진이 올라오면 인기 지역을 추천해드릴게요
             </p>
           </div>
         ) : (
@@ -501,13 +468,12 @@ const SearchScreen = () => {
             }}
           >
             <div className="flex items-stretch px-4 gap-3 pb-2">
-              {filteredRegionsByHashtag.slice(0, 12).map((region) => {
-                const regionPhoto = regionRepresentativePhotos[region.name];
-                const displayImage = regionPhoto?.image || region.image;
+              {topRegions.map((region) => {
+                const displayImage = region.image;
                 
                 return (
                   <div 
-                    key={region.id} 
+                    key={region.name} 
                     className="flex h-full flex-col gap-2 rounded-lg w-[280px] flex-shrink-0 cursor-pointer snap-start select-none"
                     style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                     onClick={() => handleRegionClickWithDragCheck(region.name)}
@@ -519,45 +485,25 @@ const SearchScreen = () => {
                       {/* 그라데이션 오버레이 */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3))' }}></div>
                       
-                      {/* 좌측상단: 카테고리 아이콘 + 업로드 상태 */}
-                      <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', zIndex: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        {regionPhoto?.category && (
+                      {/* 좌측상단: 카테고리 아이콘만 */}
+                      {region.category && (
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
                           <span style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center',
                             width: '40px', 
                             height: '40px', 
-                            borderRadius: '50%', 
-                            backgroundColor: 'rgba(255,255,255,0.95)', 
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                            fontSize: '24px',
+                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+                            background: 'transparent'
                           }}>
-                            {regionPhoto.category === '개화 상황' && '🌸'}
-                            {regionPhoto.category === '맛집 정보' && '🍜'}
-                            {(!regionPhoto.category || !['개화 상황', '맛집 정보'].includes(regionPhoto.category)) && '🏞️'}
+                            {region.category === '개화 상황' && '🌸'}
+                            {region.category === '맛집 정보' && '🍜'}
+                            {(!region.category || !['개화 상황', '맛집 정보'].includes(region.category)) && '🏞️'}
                           </span>
-                        )}
-                        
-                        {/* 업로드 카운트 배지 */}
-                        {regionPhoto && regionPhoto.count > 0 && (
-                          <span style={{ 
-                            padding: '4px 10px', 
-                            borderRadius: '12px', 
-                            backgroundColor: 'rgba(102, 126, 234, 0.95)', 
-                            color: 'white',
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            📸 {regionPhoto.count}
-                          </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       
                       {/* 좌측하단: 지역 이름 + 위치정보 + 업로드시간 */}
                       <div style={{ 
@@ -580,7 +526,7 @@ const SearchScreen = () => {
                           }}>
                             {region.name}
                           </p>
-                          {regionPhoto?.detailedLocation && (
+                          {region.detailedLocation && (
                             <p style={{ 
                               color: 'white', 
                               fontSize: '13px', 
@@ -589,10 +535,10 @@ const SearchScreen = () => {
                               textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                               margin: 0
                             }}>
-                              📍 {regionPhoto.detailedLocation}
+                              {region.detailedLocation}
                             </p>
                           )}
-                          {regionPhoto?.time && (
+                          {region.time && (
                             <p style={{ 
                               color: 'rgba(255,255,255,0.9)', 
                               fontSize: '12px', 
@@ -601,7 +547,7 @@ const SearchScreen = () => {
                               textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                               margin: 0
                             }}>
-                              ⏰ {regionPhoto.time}
+                              {region.time}
                             </p>
                           )}
                         </div>
@@ -611,6 +557,19 @@ const SearchScreen = () => {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* 전체 지역 보기 버튼 */}
+        {topRegions.length >= 6 && !showAllRegions && (
+          <div className="px-4 pt-2 pb-6">
+            <button
+              onClick={() => setShowAllRegions(true)}
+              className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined">expand_more</span>
+              <span>더 많은 지역 보기</span>
+            </button>
           </div>
         )}
 

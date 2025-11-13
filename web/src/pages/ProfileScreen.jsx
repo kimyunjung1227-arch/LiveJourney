@@ -19,6 +19,7 @@ const ProfileScreen = () => {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [activeTab, setActiveTab] = useState('my'); // 'my' | 'map' | 'timeline'
 
   useEffect(() => {
     // localStorage에서 사용자 정보 로드
@@ -42,18 +43,15 @@ const ProfileScreen = () => {
     setLevelInfo(userLevelInfo);
     console.log('📊 레벨 정보:', userLevelInfo);
 
-    // 내가 업로드한 게시물 로드
-    let uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-    
-    // 2일 이상 된 게시물 필터링 ⭐
-    uploadedPosts = filterRecentPosts(uploadedPosts, 2);
+    // 내가 업로드한 게시물 로드 (영구 보관 - 필터링 없음!)
+    const uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     
     const userId = savedUser.id;
     const userPosts = uploadedPosts.filter(post => post.userId === userId);
     
-    console.log('📊 프로필 화면 - 내 게시물 로드');
-    console.log('  전체 게시물 (2일 이내):', uploadedPosts.length);
-    console.log('  내 게시물 (2일 이내):', userPosts.length);
+    console.log('📊 프로필 화면 - 내 게시물 로드 (영구 보관)');
+    console.log('  전체 게시물:', uploadedPosts.length);
+    console.log('  내 게시물 (모두):', userPosts.length);
     console.log('  사용자 ID:', userId);
     
     setMyPosts(userPosts);
@@ -68,11 +66,10 @@ const ProfileScreen = () => {
 
     // 게시물 업데이트 이벤트 리스너
     const handlePostsUpdate = () => {
-      let updatedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-      // 2일 필터링
-      updatedPosts = filterRecentPosts(updatedPosts, 2);
+      const updatedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+      // 프로필에서는 필터링 없이 모든 내 게시물 표시
       const updatedUserPosts = updatedPosts.filter(post => post.userId === userId);
-      console.log('🔄 게시물 업데이트 (2일 이내):', updatedUserPosts.length);
+      console.log('🔄 게시물 업데이트 (영구 보관):', updatedUserPosts.length);
       setMyPosts(updatedUserPosts);
     };
 
@@ -380,18 +377,71 @@ const ProfileScreen = () => {
           </button>
         </div>
 
-        {/* 내가 올린 사진 */}
+        {/* 여행 기록 탭 */}
         <div className="bg-white dark:bg-gray-900 px-6 py-6 border-t border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-text-primary-light dark:text-text-primary-dark text-base font-bold">
-              내가 올린 사진
-            </h3>
-            {myPosts.length > 0 && (
-              <div className="flex items-center gap-2">
+          {/* 탭 전환 */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setActiveTab('my')}
+              className={`flex-1 py-3 px-2 rounded-xl font-semibold transition-all text-sm whitespace-nowrap ${
+                activeTab === 'my'
+                  ? 'bg-primary text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              📸 내 사진
+            </button>
+            <button
+              onClick={() => setActiveTab('map')}
+              className={`flex-1 py-3 px-2 rounded-xl font-semibold transition-all text-sm whitespace-nowrap ${
+                activeTab === 'map'
+                  ? 'bg-primary text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              🗺️ 여행지도
+            </button>
+            <button
+              onClick={() => setActiveTab('timeline')}
+              className={`flex-1 py-3 px-2 rounded-xl font-semibold transition-all text-sm whitespace-nowrap ${
+                activeTab === 'timeline'
+                  ? 'bg-primary text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              📅 타임라인
+            </button>
+          </div>
+
+          {/* 여행 통계 */}
+          {myPosts.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-primary dark:text-orange-300">{myPosts.length}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">총 사진</div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
+                  {new Set(myPosts.map(p => p.location)).size}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">방문 지역</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-300">
+                  {new Set(myPosts.map(p => p.category)).size}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">카테고리</div>
+              </div>
+            </div>
+          )}
+
+          {/* 편집 버튼 (내 사진 탭에서만) */}
+          {activeTab === 'my' && myPosts.length > 0 && (
+            <div className="flex items-center justify-end mb-4">
                 {isEditMode && selectedPhotos.length > 0 && (
                   <button 
                     onClick={deleteSelectedPhotos}
-                    className="text-red-500 text-sm font-semibold"
+                  className="text-red-500 text-sm font-semibold mr-2"
                   >
                     삭제 ({selectedPhotos.length})
                   </button>
@@ -404,9 +454,9 @@ const ProfileScreen = () => {
                 </button>
               </div>
             )}
-          </div>
 
-          {myPosts.length === 0 ? (
+          {/* 내 사진 탭 */}
+          {activeTab === 'my' && myPosts.length === 0 && (
             <div className="text-center py-8">
               <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4 block">
                 add_photo_alternate
@@ -425,7 +475,9 @@ const ProfileScreen = () => {
                 첫 사진 올리기
               </button>
             </div>
-          ) : (
+          )}
+
+          {activeTab === 'my' && myPosts.length > 0 && (
             <div className="grid grid-cols-2 gap-3">
               {myPosts.map((post, index) => (
                 <div
@@ -469,6 +521,149 @@ const ProfileScreen = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* 여행 지도 탭 */}
+          {activeTab === 'map' && (
+            <div>
+              {myPosts.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4 block">
+                    map
+                  </span>
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-medium mb-2">
+                    아직 여행 기록이 없어요
+                  </p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm">
+                    사진을 올리면 여기에 지도로 표시돼요!
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {/* 지도 영역 */}
+                  <div id="travel-map" className="w-full h-96 rounded-xl overflow-hidden mb-4 bg-gray-100 dark:bg-gray-800">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <div className="text-center">
+                        <span className="material-symbols-outlined text-5xl mb-2 block">location_on</span>
+                        <p className="text-sm">지도를 불러오는 중...</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 지역별 사진 수 */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">📍 방문한 지역</h3>
+                    {Object.entries(
+                      myPosts.reduce((acc, post) => {
+                        const location = post.location || '기타';
+                        acc[location] = (acc[location] || 0) + 1;
+                        return acc;
+                      }, {})
+                    )
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([location, count]) => (
+                        <div
+                          key={location}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setActiveTab('my');
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary text-xl">location_on</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{location}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-1 rounded-full">
+                            {count}장
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 타임라인 탭 */}
+          {activeTab === 'timeline' && (
+            <div>
+              {myPosts.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4 block">
+                    event_note
+                  </span>
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-medium mb-2">
+                    아직 여행 기록이 없어요
+                  </p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm">
+                    사진을 올리면 타임라인으로 정리돼요!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(
+                    myPosts.reduce((acc, post) => {
+                      const date = new Date(post.createdAt || Date.now());
+                      const dateKey = date.toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      });
+                      if (!acc[dateKey]) acc[dateKey] = [];
+                      acc[dateKey].push(post);
+                      return acc;
+                    }, {})
+                  )
+                    .sort((a, b) => new Date(b[1][0].createdAt) - new Date(a[1][0].createdAt))
+                    .map(([date, posts]) => (
+                      <div key={date}>
+                        {/* 날짜 헤더 */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary text-xl">calendar_today</span>
+                            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{date}</h3>
+                          </div>
+                          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{posts.length}장</span>
+                        </div>
+
+                        {/* 사진 그리드 */}
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                          {posts.map((post, index) => (
+                            <div
+                              key={post.id || index}
+                              onClick={() => navigate(`/post/${post.id}`)}
+                              className="cursor-pointer group"
+                            >
+                              <div className="aspect-square relative overflow-hidden rounded-lg">
+                                <img
+                                  src={post.imageUrl || post.images?.[0]}
+                                  alt={post.location}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-all duration-300"
+                                />
+                                {/* 카테고리 아이콘 */}
+                                <div className="absolute top-2 left-2">
+                                  <div className="text-2xl drop-shadow-lg">
+                                    {post.category === 'blooming' && '🌸'}
+                                    {post.category === 'snow' && '❄️'}
+                                    {post.category === 'autumn' && '🍁'}
+                                    {post.category === 'festival' && '🎉'}
+                                    {post.category === 'crowd' && '👥'}
+                                    {post.category === 'general' && '📷'}
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                                {post.location}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
         </div>

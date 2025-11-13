@@ -5,7 +5,7 @@ import LiveJourneyLogo from '../components/LiveJourneyLogo';
 
 const StartScreen = () => {
   const navigate = useNavigate();
-  const { login, signup, loginAsGuest, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isLogin, setIsLogin] = useState(false);
   const [formData, setFormData] = useState({
@@ -42,18 +42,40 @@ const StartScreen = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSocialLogin = (provider) => {
-    // 소셜 로그인은 백엔드 서버가 필요합니다
-    alert('⚠️ 소셜 로그인은 현재 준비 중입니다.\n\n💡 "테스터 계정으로 바로 체험하기" 버튼을 눌러서\n모든 기능을 바로 사용해보세요!');
-    return;
+  const handleSocialLogin = async (provider) => {
+    setLoading(true);
+    setError('');
     
-    // const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    // window.location.href = `${apiUrl}/api/auth/${provider.toLowerCase()}`;
-  };
-
-  const handleGuestLogin = () => {
-    loginAsGuest();
-    navigate('/main');
+    try {
+      // 소셜 로그인 Mock 구현
+      const socialUser = {
+        id: `${provider.toLowerCase()}_${Date.now()}`,
+        email: `user_${Date.now()}@${provider.toLowerCase()}.com`,
+        username: `${provider} 사용자`,
+        provider: provider,
+        profileImage: null,
+        createdAt: new Date().toISOString()
+      };
+      
+      // localStorage에 저장
+      localStorage.setItem('token', `${provider.toLowerCase()}_token_${Date.now()}`);
+      localStorage.setItem('user', JSON.stringify(socialUser));
+      
+      // AuthContext 업데이트
+      const result = await login(socialUser.email, 'social_login_no_password');
+      
+      // 수동으로 사용자 정보 설정 (소셜 로그인은 비밀번호가 없으므로)
+      localStorage.setItem('user', JSON.stringify(socialUser));
+      
+      console.log(`✅ ${provider} 로그인 성공:`, socialUser);
+      
+      navigate('/main');
+    } catch (error) {
+      console.error('소셜 로그인 실패:', error);
+      setError(`${provider} 로그인에 실패했습니다.`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEmailClick = () => {
@@ -313,20 +335,11 @@ const StartScreen = () => {
           )}
         </div>
 
-        <div className="flex-shrink-0 p-4 pt-2 pb-6 bg-background-light dark:bg-background-dark space-y-2">
-          {/* 테스터 계정으로 바로 시작 버튼 */}
-          <button
-            onClick={handleGuestLogin}
-            className="w-full h-11 text-sm font-bold rounded-xl shadow-lg transition-all bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-2xl active:scale-95"
-            style={{ touchAction: 'manipulation' }}
-          >
-            ⚡ 테스터 계정으로 바로 시작
-          </button>
-
+        <div className="flex-shrink-0 p-4 pt-2 pb-6 bg-background-light dark:bg-background-dark">
           <button
             onClick={handleSubmit}
             disabled={loading || !isFormValid()}
-            className={`w-full h-11 text-sm font-bold rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all ${
+            className={`w-full h-12 text-sm font-bold rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all ${
               loading || !isFormValid()
                 ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 : 'bg-primary text-white hover:bg-primary/90 active:scale-98'
@@ -354,29 +367,44 @@ const StartScreen = () => {
           </div>
 
           {/* 소셜 로그인 버튼들 */}
-          <div className="flex flex-col w-full gap-2 mb-3">
+          <div className="flex flex-col w-full gap-3 mb-4">
             <button 
               onClick={() => handleSocialLogin('Google')}
-              className="flex cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-5 bg-white text-[#1F1F1F] text-sm font-bold leading-normal tracking-[0.015em] border-2 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 active:bg-zinc-100 transition-all shadow-md"
+              disabled={loading}
+              className="flex cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-white text-[#1F1F1F] text-sm font-bold leading-normal tracking-[0.015em] border-2 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 active:bg-zinc-100 transition-all shadow-md disabled:opacity-50"
               style={{ touchAction: 'manipulation' }}
             >
-              <span className="truncate">Google로 시작하기</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <span className="truncate">Google로 계속하기</span>
             </button>
 
             <button 
               onClick={() => handleSocialLogin('Kakao')}
-              className="flex cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-5 bg-[#FEE500] text-[#000000] text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#fdd835] active:bg-[#fbc02d] transition-all shadow-sm"
+              disabled={loading}
+              className="flex cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-[#FEE500] text-[#000000] text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#fdd835] active:bg-[#fbc02d] transition-all shadow-md disabled:opacity-50"
               style={{ touchAction: 'manipulation' }}
             >
-              <span className="truncate">KakaoTalk으로 시작하기</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11l-4.408 2.883c-.501.265-.678.236-.472-.413l.892-3.678c-2.88-1.46-4.785-3.99-4.785-6.866C1.5 6.665 6.201 3 12 3zm5.907 8.06l1.47-1.424a.472.472 0 0 0-.656-.678l-1.928 1.866V9.282a.472.472 0 0 0-.944 0v2.557a.471.471 0 0 0 0 .222V13.5a.472.472 0 0 0 .944 0v-1.363l.427-.413 1.428 2.033a.472.472 0 1 0 .773-.543l-1.514-2.155zm-2.958 1.924h-1.46V9.297a.472.472 0 0 0-.943 0v4.159c0 .26.21.472.471.472h1.932a.472.472 0 1 0 0-.944zm-5.857-1.092l.696-1.707.638 1.707H9.092zm2.523.488l.002-.016a.469.469 0 0 0-.127-.32l-1.046-2.8a.69.69 0 0 0-.627-.474.69.69 0 0 0-.627.474l-1.149 2.79a.472.472 0 0 0 .874.338l.228-.546h2.013l.251.611a.472.472 0 1 0 .874-.338l-.002-.016.336-.103zm-4.055.418a.512.512 0 0 1-.234-.234.487.487 0 0 1-.046-.308v-3.168a.472.472 0 0 0-.944 0v3.168c0 .27.063.533.184.765a1.427 1.427 0 0 0 1.163.695c.26 0 .472-.212.472-.472a.472.472 0 0 0-.472-.472h-.123v.026z"/>
+              </svg>
+              <span className="truncate">카카오로 계속하기</span>
             </button>
 
             <button 
               onClick={() => handleSocialLogin('Naver')}
-              className="flex cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-5 bg-[#03C75A] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#02b350] active:bg-[#02a047] transition-all shadow-sm"
+              disabled={loading}
+              className="flex cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-[#03C75A] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#02b350] active:bg-[#02a047] transition-all shadow-md disabled:opacity-50"
               style={{ touchAction: 'manipulation' }}
             >
-              <span className="truncate">Naver로 시작하기</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16.273 12.845L7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845z"/>
+              </svg>
+              <span className="truncate">네이버로 계속하기</span>
             </button>
           </div>
 
@@ -387,31 +415,32 @@ const StartScreen = () => {
           </div>
 
           {/* 이메일 가입 버튼 */}
-          <div className="flex flex-col w-full gap-2">
+          <div className="flex flex-col w-full">
             <button 
               onClick={handleEmailClick}
-              className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-5 bg-white dark:bg-gray-800 text-primary dark:text-white text-sm font-bold leading-normal tracking-[0.015em] border-2 border-primary hover:bg-primary/5 active:bg-primary/10 transition-all shadow-md"
+              disabled={loading}
+              className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl h-12 px-5 bg-white dark:bg-gray-800 text-primary dark:text-white text-sm font-bold leading-normal tracking-[0.015em] border-2 border-primary hover:bg-primary/5 active:bg-primary/10 transition-all shadow-md disabled:opacity-50"
               style={{ touchAction: 'manipulation' }}
             >
+              <span className="material-symbols-outlined text-lg">mail</span>
               <span className="truncate">이메일로 가입/로그인</span>
             </button>
-
-            {/* 테스터 유저 버튼 */}
-            <button 
-              onClick={handleGuestLogin}
-              className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-base font-bold leading-normal tracking-[0.015em] hover:shadow-xl active:scale-95 transition-all shadow-lg mt-2"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span className="material-symbols-outlined mr-2 text-xl">rocket_launch</span>
-              <span className="truncate">테스터 계정으로 바로 체험하기</span>
-            </button>
           </div>
 
-          <div className="mt-4 text-center">
-            <p className="text-zinc-500 dark:text-zinc-400 text-xs font-normal">
-              💡 빠른 체험을 원하시면 "테스터 계정으로 바로 체험하기"를 눌러주세요!
-            </p>
-          </div>
+          {/* 에러 메시지 */}
+          {error && (
+            <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-xl text-sm font-medium text-center">
+              {error}
+            </div>
+          )}
+
+          {/* 로딩 상태 */}
+          {loading && (
+            <div className="mt-4 flex items-center justify-center gap-2 text-primary dark:text-orange-400">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+              <span className="text-sm font-medium">로그인 중...</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -133,7 +133,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 10 },
       icon: 'landscape',
-      color: 'from-teal-400 to-green-500'
+      color: 'from-orange-400 to-green-500'
     },
     {
       id: 11,
@@ -144,7 +144,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 10 },
       icon: 'terrain',
-      color: 'from-emerald-400 to-teal-500'
+      color: 'from-emerald-400 to-orange-500'
     },
     {
       id: 12,

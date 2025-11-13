@@ -399,7 +399,7 @@ const MainScreen = () => {
       loadMockData();
       loadUploadedPosts();
     };
-
+    
     // 알림 개수 업데이트
     window.addEventListener('notificationCountChanged', handleNotificationChange);
     window.addEventListener('newPostsAdded', handleNewPosts);
@@ -423,8 +423,8 @@ const MainScreen = () => {
       {/* 메인 스크롤 영역 */}
       <div className="screen-content">
         {/* 상단 헤더 - sticky */}
-        <div className="screen-header bg-white dark:bg-gray-900 border-b border-border-light/50 dark:border-border-dark/50 shadow-sm">
-        <div className="flex items-center px-4 py-4 justify-between">
+        <div className="screen-header bg-white dark:bg-gray-900 border-b border-border-light/50 dark:border-border-dark/50 shadow-sm relative z-50">
+        <div className="flex items-center px-4 py-3 justify-between">
           <h2 className="text-xl font-bold leading-tight tracking-[-0.015em]">LiveJourney</h2>
           <button 
             onClick={() => navigate('/notifications')}
@@ -570,7 +570,7 @@ const MainScreen = () => {
                         
                         {/* 좌측상단: 카테고리 아이콘 */}
                         {item.categoryName && (
-                          <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 20 }}>
+                          <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
                             <span style={{ 
                               display: 'flex', 
                               alignItems: 'center', 
@@ -578,10 +578,9 @@ const MainScreen = () => {
                               width: '40px', 
                               height: '40px', 
                               borderRadius: '50%', 
-                              backgroundColor: 'rgba(255,255,255,0.95)', 
-                              fontSize: '20px',
+                              fontSize: '24px',
                               fontWeight: 'bold',
-                              boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
                             }}>
                               {item.categoryName === '개화 상황' && '🌸'}
                               {item.categoryName === '맛집 정보' && '🍜'}
@@ -610,7 +609,7 @@ const MainScreen = () => {
                               textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                               margin: 0
                             }}>
-                              📍 {item.title}
+                              {item.title}
                             </p>
                           )}
                           {item.time && (
@@ -622,7 +621,7 @@ const MainScreen = () => {
                               textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                               margin: 0
                             }}>
-                              ⏰ {item.time}
+                              {item.time}
                             </p>
                           )}
                         </div>
@@ -701,7 +700,7 @@ const MainScreen = () => {
                       
                       {/* 좌측상단: 카테고리 아이콘만 */}
                       {item.categoryName && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 20 }}>
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
                           <span style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -709,10 +708,9 @@ const MainScreen = () => {
                             width: '40px', 
                             height: '40px', 
                             borderRadius: '50%', 
-                            backgroundColor: 'rgba(255,255,255,0.95)', 
-                            fontSize: '20px',
+                            fontSize: '24px',
                             fontWeight: 'bold',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
                           }}>
                             {item.categoryName === '개화 상황' && '🌸'}
                             {item.categoryName === '맛집 정보' && '🍜'}
@@ -864,7 +862,7 @@ const MainScreen = () => {
                       
                       {/* 좌측상단: 카테고리 아이콘만 */}
                       {item.categoryName && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 20 }}>
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
                           <span style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -872,10 +870,9 @@ const MainScreen = () => {
                             width: '40px', 
                             height: '40px', 
                             borderRadius: '50%', 
-                            backgroundColor: 'rgba(255,255,255,0.95)', 
-                            fontSize: '20px',
+                            fontSize: '24px',
                             fontWeight: 'bold',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
                           }}>
                             {item.categoryName === '개화 상황' && '🌸'}
                             {item.categoryName === '맛집 정보' && '🍜'}

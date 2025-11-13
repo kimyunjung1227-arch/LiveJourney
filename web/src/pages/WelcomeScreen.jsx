@@ -43,10 +43,10 @@ const WelcomeScreen = () => {
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-zinc-900 font-display">
       {/* 중앙 컨텐츠 */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center py-12">
-        <div className="flex flex-col items-center justify-center gap-8">
-          <LiveJourneyLogo size={280} showText={true} />
-          <h2 className="text-primary tracking-tight text-3xl font-bold leading-tight max-w-xs">
-            지금, 당신의 여행을<br/>실시간으로!
+        <div className="flex flex-col items-center justify-center gap-6">
+          <LiveJourneyLogo size={180} showText={true} />
+          <h2 className="text-gray-700 dark:text-gray-300 tracking-tight text-xl font-semibold leading-relaxed max-w-xs">
+            가기 전에 확인하고,<br/>실망 없이 즐기세요
           </h2>
         </div>
       </div>

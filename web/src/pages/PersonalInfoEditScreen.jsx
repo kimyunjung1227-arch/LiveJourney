@@ -5,14 +5,14 @@ import BottomNavigation from '../components/BottomNavigation';
 
 const PersonalInfoEditScreen = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [formData, setFormData] = useState({
-    name: user?.name || '김나우',
-    email: user?.email || 'nowtrip@email.com',
-    phone: user?.phone || '010-1234-5678',
-    gender: user?.gender || 'female',
-    birthdate: user?.birthdate || '1995-08-15'
+    name: user?.name || user?.username || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    gender: user?.gender || '',
+    birthdate: user?.birthdate || ''
   });
 
   const handleInputChange = (e) => {
@@ -36,11 +36,28 @@ const PersonalInfoEditScreen = () => {
 
   const handleSave = async () => {
     try {
-      // TODO: API 호출하여 개인 정보 저장
+      // 업데이트된 사용자 정보 생성
+      const updatedUserData = {
+        ...user,
+        name: formData.name,
+        username: formData.name, // username도 함께 업데이트
+        email: formData.email,
+        phone: formData.phone,
+        gender: formData.gender,
+        birthdate: formData.birthdate
+      };
+      
+      // AuthContext 및 localStorage 업데이트
+      updateUser(updatedUserData);
+      
+      // 사용자 정보 업데이트 이벤트 발생 (다른 컴포넌트에서 감지)
+      window.dispatchEvent(new Event('userUpdated'));
+      
+      console.log('✅ 개인 정보 저장 완료:', updatedUserData);
       alert('개인 정보가 저장되었습니다!');
       navigate('/settings');
     } catch (error) {
-      console.error('저장 실패:', error);
+      console.error('❌ 저장 실패:', error);
       alert('저장에 실패했습니다.');
     }
   };

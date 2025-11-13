@@ -22,7 +22,7 @@
     <!-- 중앙 원 -->
     <circle cx="0" cy="0" r="30" fill="white"/>
     
-    <!-- N 방향 표시 -->
+    <!-- N 방향 -->
     <text x="0" y="-55" text-anchor="middle" fill="white" font-size="18" font-weight="bold">N</text>
     
     <!-- 셔터 버튼 -->

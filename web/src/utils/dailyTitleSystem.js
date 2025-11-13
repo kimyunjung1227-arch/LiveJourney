@@ -79,7 +79,7 @@ export const DAILY_TITLES = {
     category: '실시간 속보',
     description: "'지금 바로 가세요' 알림 후, 해당 장소에 가장 먼저 도착 인증",
     effect: 'speed',
-    bgColor: 'from-green-400 to-teal-500',
+    bgColor: 'from-green-400 to-orange-500',
     borderColor: 'border-green-500',
     glowColor: 'shadow-green-500/50'
   },
@@ -204,9 +204,9 @@ export const DAILY_TITLES = {
     category: '소통',
     description: '여행 상황 질문에 가장 정확하고 상세한 답변을 제공',
     effect: 'solver',
-    bgColor: 'from-teal-400 to-cyan-500',
-    borderColor: 'border-teal-500',
-    glowColor: 'shadow-teal-500/50'
+    bgColor: 'from-orange-400 to-pink-500',
+    borderColor: 'border-orange-500',
+    glowColor: 'shadow-orange-500/50'
   },
   '댓글 릴레이 주역': {
     id: 19,

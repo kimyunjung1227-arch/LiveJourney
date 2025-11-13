@@ -175,7 +175,7 @@ const RegionDetailScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <header className="screen-header flex items-center justify-between border-b border-gray-200 bg-white p-4 pb-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <header className="screen-header flex items-center justify-between border-b border-gray-200 bg-white p-4 pb-3 shadow-sm dark:border-gray-700 dark:bg-gray-900 relative z-50">
         <button 
           onClick={() => navigate(-1)}
           className="flex size-12 shrink-0 items-center justify-center text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -267,7 +267,7 @@ const RegionDetailScreen = () => {
                     
                     {/* 좌측상단: 카테고리 아이콘만 */}
                     {photo.categoryName && (
-                      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 20 }}>
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
                         <span style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
@@ -275,10 +275,9 @@ const RegionDetailScreen = () => {
                           width: '40px', 
                           height: '40px', 
                           borderRadius: '50%', 
-                          backgroundColor: 'rgba(255,255,255,0.95)', 
-                          fontSize: '20px',
+                          fontSize: '24px',
                           fontWeight: 'bold',
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
                         }}>
                           {photo.categoryName === '개화 상황' && '🌸'}
                           {photo.categoryName === '맛집 정보' && '🍜'}
@@ -307,7 +306,7 @@ const RegionDetailScreen = () => {
                             textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                             margin: 0
                           }}>
-                            📍 {photo.detailedLocation}
+                            {photo.detailedLocation}
                           </p>
                         )}
                         {photo.time && (
@@ -319,7 +318,7 @@ const RegionDetailScreen = () => {
                             textShadow: '0 2px 8px rgba(0,0,0,0.8)',
                             margin: 0
                           }}>
-                            ⏰ {photo.time}
+                            {photo.time}
                           </p>
                         )}
                       </div>
@@ -390,12 +389,12 @@ const RegionDetailScreen = () => {
                     <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-1">
                       {spot.detailedLocation && (
                         <p className="text-white text-sm font-bold truncate drop-shadow-lg">
-                          📍 {spot.detailedLocation}
+                          {spot.detailedLocation}
                         </p>
                       )}
                       {spot.time && (
                         <p className="text-white/90 text-xs font-medium drop-shadow-md">
-                          ⏰ {spot.time}
+                          {spot.time}
                         </p>
                       )}
                     </div>
@@ -465,12 +464,12 @@ const RegionDetailScreen = () => {
                     <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-1">
                       {photo.detailedLocation && (
                         <p className="text-white text-sm font-bold truncate drop-shadow-lg">
-                          📍 {photo.detailedLocation}
+                          {photo.detailedLocation}
                         </p>
                       )}
                       {photo.time && (
                         <p className="text-white/90 text-xs font-medium drop-shadow-md">
-                          ⏰ {photo.time}
+                          {photo.time}
                         </p>
                       )}
                     </div>
@@ -532,12 +531,12 @@ const RegionDetailScreen = () => {
                     <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-1">
                       {food.detailedLocation && (
                         <p className="text-white text-sm font-bold truncate drop-shadow-lg">
-                          📍 {food.detailedLocation}
+                          {food.detailedLocation}
                         </p>
                       )}
                       {food.time && (
                         <p className="text-white/90 text-xs font-medium drop-shadow-md">
-                          ⏰ {food.time}
+                          {food.time}
                         </p>
                       )}
                 </div>

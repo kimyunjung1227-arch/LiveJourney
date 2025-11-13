@@ -1,25 +1,126 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { getPost, likePost, addQuestion } from '../api/posts';
 import { useAuth } from '../contexts/AuthContext';
 import { getWeatherByRegion } from '../api/weather';
 import { getTimeAgo } from '../utils/dateUtils';
+import { toggleLike, isPostLiked, addComment } from '../utils/socialInteractions';
+
+// 영어 태그를 한국어로 번역
+const tagTranslations = {
+  // 자연/풍경
+  'nature': '자연',
+  'landscape': '풍경',
+  'mountain': '산',
+  'beach': '해변',
+  'forest': '숲',
+  'river': '강',
+  'lake': '호수',
+  'sunset': '일몰',
+  'sunrise': '일출',
+  'sky': '하늘',
+  'cloud': '구름',
+  'tree': '나무',
+  'flower': '꽃',
+  'cherry blossom': '벚꽃',
+  'autumn': '가을',
+  'spring': '봄',
+  'summer': '여름',
+  'winter': '겨울',
+  'snow': '눈',
+  'rain': '비',
+  
+  // 음식
+  'food': '음식',
+  'restaurant': '맛집',
+  'cafe': '카페',
+  'coffee': '커피',
+  'dessert': '디저트',
+  'korean food': '한식',
+  'japanese food': '일식',
+  'chinese food': '중식',
+  'western food': '양식',
+  'street food': '길거리음식',
+  'seafood': '해산물',
+  'meat': '고기',
+  'vegetable': '채소',
+  'fruit': '과일',
+  'bread': '빵',
+  'noodle': '면요리',
+  'rice': '밥',
+  
+  // 건물/장소
+  'building': '건물',
+  'architecture': '건축',
+  'temple': '사찰',
+  'palace': '궁궐',
+  'castle': '성',
+  'tower': '타워',
+  'bridge': '다리',
+  'park': '공원',
+  'garden': '정원',
+  'street': '거리',
+  'alley': '골목',
+  'market': '시장',
+  'shop': '상점',
+  'mall': '쇼핑몰',
+  
+  // 활동
+  'travel': '여행',
+  'trip': '여행',
+  'hiking': '등산',
+  'camping': '캠핑',
+  'picnic': '피크닉',
+  'festival': '축제',
+  'event': '이벤트',
+  'concert': '공연',
+  'exhibition': '전시',
+  'shopping': '쇼핑',
+  'walking': '산책',
+  
+  // 동물
+  'animal': '동물',
+  'dog': '강아지',
+  'cat': '고양이',
+  'bird': '새',
+  'fish': '물고기',
+  
+  // 기타
+  'photo': '사진',
+  'photography': '사진',
+  'art': '예술',
+  'culture': '문화',
+  'history': '역사',
+  'traditional': '전통',
+  'modern': '현대',
+  'vintage': '빈티지',
+  'night': '밤',
+  'day': '낮',
+  'morning': '아침',
+  'evening': '저녁',
+  'beautiful': '아름다운',
+  'pretty': '예쁜',
+  'cute': '귀여운',
+  'cool': '멋진',
+  'amazing': '놀라운',
+  'scenic': '경치좋은'
+};
 
 const PostDetailScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { postId } = useParams();
   const { user } = useAuth();
-  const { post: passedPost } = location.state || {};
+  const { post: passedPost, fromMap, selectedPinId, allPins, mapState } = location.state || {};
 
   const [post, setPost] = useState(passedPost);
   const [loading, setLoading] = useState(!passedPost);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post?.likesCount || 0);
-  const [question, setQuestion] = useState('');
-  const [qnaList, setQnaList] = useState([]);
+  const [likeCount, setLikeCount] = useState(post?.likes || 0);
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [weatherInfo, setWeatherInfo] = useState({
     icon: '☀️',
@@ -27,6 +128,14 @@ const PostDetailScreen = () => {
     temperature: '20°C',
     loading: true
   });
+  
+  // 터치 스와이프
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  
+  // 미니 지도
+  const miniMapRef = useRef(null);
+  const miniMapInstance = useRef(null);
 
   // 이미지 배열 (useMemo) - handleImageSwipe보다 먼저 정의
   const images = useMemo(() => 
@@ -74,8 +183,10 @@ const PostDetailScreen = () => {
 
     if (passedPost) {
       setPost(passedPost);
-      setQnaList(passedPost.qnaList || []);
-      setLikeCount(passedPost.likesCount || 0);
+      const allComments = [...(passedPost.comments || []), ...(passedPost.qnaList || [])];
+      setComments(allComments);
+      setLikeCount(passedPost.likes || 0);
+      setLiked(isPostLiked(passedPost.id));
       setLoading(false);
       return;
     }
@@ -96,8 +207,10 @@ const PostDetailScreen = () => {
       if (localPost) {
         console.log('✅ localStorage에서 게시물 찾음:', localPost.id);
         setPost(localPost);
-        setQnaList(localPost.qnaList || []);
-        setLikeCount(localPost.likesCount || localPost.likes || 0);
+        const allComments = [...(localPost.comments || []), ...(localPost.qnaList || [])];
+        setComments(allComments);
+        setLikeCount(localPost.likes || 0);
+        setLiked(isPostLiked(localPost.id));
         setLoading(false);
         return;
       }
@@ -127,137 +240,17 @@ const PostDetailScreen = () => {
     }
   }, [postId, passedPost, navigate, formatQnA]);
 
-  // 좋아요 처리 (토글 가능!)
-  const handleLike = useCallback(async () => {
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
-
-    try {
-      // 즉시 UI 업데이트 (토글!)
-      const newLiked = !liked;
-      const newCount = newLiked ? likeCount + 1 : likeCount - 1;
-      setLiked(newLiked);
-      setLikeCount(newCount);
-      
-      console.log(`${newLiked ? '❤️ 좋아요 추가' : '💔 좋아요 취소'}: ${post.id}`);
-
-      const postIdToUse = post._id || post.id;
-      
-      // 로컬 데이터는 state만 업데이트
-      if (!postIdToUse || postIdToUse.toString().includes('-')) {
-        return;
-      }
-
-      // API 호출 (네트워크 오류는 조용히 처리)
-      const response = await likePost(postIdToUse);
-      if (response.success) {
-        // API 응답으로 최종 확정
-        setLiked(response.liked);
-        setLikeCount(response.likesCount);
-      }
-    } catch (error) {
-      // 네트워크 오류는 조용히 무시 (이미 UI 업데이트 완료)
-      if (error.code !== 'ERR_NETWORK' && error.code !== 'ERR_CONNECTION_REFUSED') {
-        console.error('좋아요 실패:', error);
-        // 실패 시 원래대로 되돌림
-        setLiked(liked);
-        setLikeCount(likeCount);
-      }
-    }
-  }, [user, post, liked, likeCount]);
-
-  // 질문 등록 (useCallback)
-  const handleSendQuestion = useCallback(async () => {
-    if (!question.trim()) {
-      alert('질문을 입력해주세요.');
-      return;
-    }
+  // 좋아요 처리
+  const handleLike = useCallback(() => {
+    if (!post) return;
     
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
+    const result = toggleLike(post.id);
+    setLiked(result.isLiked);
+    setLikeCount(result.newCount);
+    
+    console.log(result.isLiked ? '❤️ 좋아요!' : '💔 좋아요 취소');
+  }, [post]);
 
-    try {
-      setSubmitting(true);
-      const postIdToUse = post._id || post.id;
-      
-      // 로컬 데이터 (Mock/업로드)인 경우
-      if (!postIdToUse || postIdToUse.toString().includes('-')) {
-        console.log('📝 로컬 게시물에 질문 등록:', postIdToUse);
-        
-        const newQuestion = {
-          id: `local-q-${Date.now()}`,
-          type: 'question',
-          user: user.username || '나',
-          content: question,
-          time: '방금',
-          avatar: user.profileImage || 'https://via.placeholder.com/40'
-        };
-        
-        // 화면에 즉시 표시
-        const updatedQnaList = [...qnaList, newQuestion];
-        setQnaList(updatedQnaList);
-        
-        // localStorage에도 저장
-        try {
-          const localPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-          const postIndex = localPosts.findIndex(p => 
-            p.id === postIdToUse || 
-            p.id === `uploaded-${postIdToUse}` ||
-            p.id === `realtime-${postIdToUse}` ||
-            p.id === `crowded-${postIdToUse}` ||
-            p.id === `recommend-${postIdToUse}`
-          );
-          
-          if (postIndex !== -1) {
-            // 게시물에 질문 추가
-            if (!localPosts[postIndex].qnaList) {
-              localPosts[postIndex].qnaList = [];
-            }
-            localPosts[postIndex].qnaList.push(newQuestion);
-            
-            // localStorage 업데이트
-            localStorage.setItem('uploadedPosts', JSON.stringify(localPosts));
-            console.log('✅ localStorage에 질문 저장 완료!');
-          }
-        } catch (error) {
-          console.error('localStorage 저장 실패:', error);
-        }
-        
-        setQuestion('');
-        alert('✅ 질문이 등록되었습니다!');
-        return;
-      }
-
-      // API를 통한 질문 등록
-      console.log('🔍 API를 통해 질문 등록:', postIdToUse);
-      const response = await addQuestion(postIdToUse, question);
-      if (response.success) {
-        const newQuestion = {
-          id: response.question._id,
-          type: 'question',
-          user: user.username,
-          content: question,
-          time: '방금',
-          avatar: user.profileImage || 'https://via.placeholder.com/40'
-        };
-        setQnaList([...qnaList, newQuestion]);
-        setQuestion('');
-        alert('✅ 질문이 등록되었습니다!');
-      }
-    } catch (error) {
-      // 네트워크 오류는 조용히 처리
-      if (error.code !== 'ERR_NETWORK' && error.code !== 'ERR_CONNECTION_REFUSED') {
-        console.error('❌ 질문 등록 실패:', error);
-        alert('질문 등록에 실패했습니다.');
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }, [question, user, post, qnaList]);
 
   // 이미지 스와이프 (useCallback)
   const handleImageSwipe = useCallback((direction) => {
@@ -267,6 +260,46 @@ const PostDetailScreen = () => {
       setCurrentImageIndex(currentImageIndex - 1);
     }
   }, [currentImageIndex, images.length]);
+
+  // 댓글 추가 핸들러
+  const handleAddComment = useCallback(() => {
+    if (!post || !commentText.trim()) return;
+    
+    const username = user?.username || '익명';
+    const newComments = addComment(post.id, commentText.trim(), username);
+    setComments(newComments);
+    setCommentText('');
+    
+    console.log('💬 댓글 추가:', commentText);
+  }, [post, commentText, user]);
+
+  // 터치 스와이프 제스처
+  const handleTouchStart = (e) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+    
+    if (isLeftSwipe && currentImageIndex < images.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1);
+    }
+    
+    if (isRightSwipe && currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1);
+    }
+    
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -357,26 +390,30 @@ const PostDetailScreen = () => {
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <div className="screen-header flex items-center bg-white dark:bg-gray-900 p-4 pb-2 justify-between shadow-sm">
+        <div className="screen-header flex items-center bg-white dark:bg-gray-900 p-4 pb-2 shadow-sm">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              // 지도에서 왔다면 지도 상태를 유지하며 돌아가기
+              if (location.state?.fromMap && location.state?.mapState) {
+                navigate('/map', { state: { mapState: location.state.mapState } });
+              } else {
+                navigate(-1);
+              }
+            }}
             className="text-[#181410] dark:text-white flex size-12 shrink-0 items-center"
           >
             <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
-          <div className="flex w-12 items-center justify-end">
-            <button 
-              onClick={() => alert('더보기 메뉴')}
-              className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 bg-transparent text-[#181410] dark:text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0"
-            >
-              <span className="material-symbols-outlined text-2xl">more_vert</span>
-            </button>
-          </div>
         </div>
 
-        <div className="flex w-full bg-background-light dark:bg-background-dark">
-          <div className="w-full gap-1 overflow-hidden bg-background-light dark:bg-background-dark aspect-[4/3] flex relative">
-            <div className="w-full overflow-hidden">
+        <div className="flex w-full bg-white dark:bg-gray-900">
+          <div className="w-full gap-1 overflow-hidden bg-white dark:bg-gray-900 aspect-[4/3] flex relative shadow-md">
+            <div 
+              className="w-full overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               <div 
                 className="flex transition-transform duration-300 ease-in-out"
                 style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
@@ -393,31 +430,34 @@ const PostDetailScreen = () => {
 
             {images.length > 1 && (
               <>
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {/* 페이지 인디케이터 - 클릭 가능 */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                   {images.map((_, index) => (
                     <div
                       key={index}
-                      className={`h-1.5 rounded-full transition-all ${
-                        index === currentImageIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/50'
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        index === currentImageIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/70'
                       }`}
                     ></div>
                   ))}
                 </div>
 
+                {/* 좌우 화살표 버튼 */}
                 {currentImageIndex > 0 && (
                   <button
                     onClick={() => handleImageSwipe('right')}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 backdrop-blur-sm text-white rounded-full w-10 h-10 flex items-center justify-center"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-sm text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-black/60 transition-colors z-10"
                   >
-                    <span className="material-symbols-outlined">chevron_left</span>
+                    <span className="material-symbols-outlined text-3xl">chevron_left</span>
                   </button>
                 )}
                 {currentImageIndex < images.length - 1 && (
                   <button
                     onClick={() => handleImageSwipe('left')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 backdrop-blur-sm text-white rounded-full w-10 h-10 flex items-center justify-center"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-sm text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-black/60 transition-colors z-10"
                   >
-                    <span className="material-symbols-outlined">chevron_right</span>
+                    <span className="material-symbols-outlined text-3xl">chevron_right</span>
                   </button>
                 )}
               </>
@@ -425,207 +465,239 @@ const PostDetailScreen = () => {
           </div>
         </div>
 
-        <main className="p-4 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-3 items-center cursor-pointer">
-              <div
-                className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10"
-                style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBmqhlNyURK2oHutCqs0XjqQdUbYLEIw3Fjyr9GN8AIkmL-_HX4k5P5P4nLUvuxwIg-wP6shqONVg0iiP-s-n6C2-XParwlSyFTZidJV97x3KU1TTOWzd3_pEmNWHkiyjJFzoB24bPKitU6ZzZvEW435KDcEQHZUBOnGlHOVMfvf7QEOkfGRCPywYOZmkeTwUuhfPqmOTfmWZdGrP6TByVTEA9H1q3oZUgp3VRxzCPOQmnOt1kKVUir_711ENBZiDYZtyFXSfsjri-z")' }}
-              ></div>
-              <div className="flex flex-col">
-                <p className="text-[#181410] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">
-                  {userName}
-                </p>
-                <p className="text-primary text-sm font-semibold leading-normal">
-                  🎖️ {userBadge}
-                </p>
+        <main className="flex flex-col bg-gray-50 dark:bg-gray-900">
+          {/* 작성자 정보 */}
+          <div className="px-4 pt-5 pb-3 bg-white dark:bg-gray-900">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-3 items-center cursor-pointer">
+                <div
+                  className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 ring-2 ring-primary/20"
+                  style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBmqhlNyURK2oHutCqs0XjqQdUbYLEIw3Fjyr9GN8AIkmL-_HX4k5P5P4nLUvuxwIg-wP6shqONVg0iiP-s-n6C2-XParwlSyFTZidJV97x3KU1TTOWzd3_pEmNWHkiyjJFzoB24bPKitU6ZzZvEW435KDcEQHZUBOnGlHOVMfvf7QEOkfGRCPywYOZmkeTwUuhfPqmOTfmWZdGrP6TByVTEA9H1q3oZUgp3VRxzCPOQmnOt1kKVUir_711ENBZiDYZtyFXSfsjri-z")' }}
+                ></div>
+                <div className="flex flex-col">
+                  <p className="text-[#181410] dark:text-white text-base font-bold leading-tight">
+                    {userName}
+                  </p>
+                  <p className="text-primary text-sm font-semibold leading-normal">
+                    🎖️ {userBadge}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 통합 정보 박스 - 지역 + 노트 + 해시태그 */}
-          <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-5 border border-orange-100 dark:border-orange-800/30 shadow-md">
-            
-            {/* 📍 위치 정보 */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-primary text-2xl">location_on</span>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">위치 정보</h3>
-              </div>
-              <div className="pl-8">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                    {detailedLocationText || locationText}
-                  </p>
-                  {categoryName && (
-                    <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                      {categoryName === '개화 상황' && '🌸'}
-                      {categoryName === '맛집 정보' && '🍜'}
-                      {(!categoryName || !['개화 상황', '맛집 정보'].includes(categoryName)) && '🏞️'}
-                      {' '}{categoryName || '추천 장소'}
-                    </span>
-                  )}
-                </div>
-                {detailedLocationText && detailedLocationText !== locationText && (
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{locationText}</p>
-                )}
-                {addressText && (
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{addressText}</p>
-                )}
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span className="material-symbols-outlined !text-sm">schedule</span>
-                    <span>{timeText}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {weatherInfo.loading ? (
-                      <>
-                        <span className="material-symbols-outlined !text-sm">wb_sunny</span>
-                        <span>로딩중...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="!text-sm">{weatherInfo.icon}</span>
-                        <span>{weatherInfo.condition}, {weatherInfo.temperature}</span>
-                      </>
+          {/* 통합 정보 카드 - 하단 흐름형 */}
+          <div className="mx-4 mt-3 mb-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-5 space-y-5">
+              
+              {/* 📍 위치 정보 */}
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-primary text-2xl flex-shrink-0">location_on</span>
+                <div className="flex-1">
+                  <div className="flex items-center flex-wrap gap-2 mb-2">
+                    <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                      {detailedLocationText || locationText}
+                    </p>
+                    {categoryName && (
+                      <span className="text-xs font-semibold text-white bg-primary px-3 py-1 rounded-full">
+                        {categoryName === '개화 상황' && '🌸'}
+                        {categoryName === '맛집 정보' && '🍜'}
+                        {(!categoryName || !['개화 상황', '맛집 정보'].includes(categoryName)) && '🏞️'}
+                        {' '}{categoryName || '추천 장소'}
+                      </span>
                     )}
                   </div>
+                  {detailedLocationText && detailedLocationText !== locationText && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">{locationText}</p>
+                  )}
+                  {addressText && (
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">{addressText}</p>
+                  )}
+                  <div className="flex items-center flex-wrap gap-3 text-sm mb-3">
+                    <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                      <span className="material-symbols-outlined !text-lg">schedule</span>
+                      <span>{timeText}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                      {weatherInfo.loading ? (
+                        <>
+                          <span className="material-symbols-outlined !text-lg">wb_sunny</span>
+                          <span>로딩중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="!text-lg">{weatherInfo.icon}</span>
+                          <span>{weatherInfo.condition}, {weatherInfo.temperature}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {/* 지도에서 보기 버튼 */}
+                  {fromMap && allPins && mapState && (
+                    <button
+                      onClick={() => navigate('/map', { state: { mapState, selectedPinId } })}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-semibold"
+                    >
+                      <span className="material-symbols-outlined text-lg">map</span>
+                      <span>지도에서 주변 보기</span>
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
 
-            {/* 📝 개인 노트 */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-primary text-2xl">edit_note</span>
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">작성자의 노트</h3>
+              {/* 🏷️ 해시태그 */}
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-primary text-2xl flex-shrink-0">tag</span>
+                <div className="flex-1">
+                  {((post?.tags && post.tags.length > 0) || (post?.aiLabels && post.aiLabels.length > 0)) ? (
+                    <div className="flex flex-wrap gap-2">
+                      {/* 모든 태그를 동일한 스타일로 표시 (한국어로 번역) */}
+                      {(post?.tags || []).map((tag, index) => {
+                        const tagText = typeof tag === 'string' ? tag.replace('#', '') : tag.name || '태그';
+                        const koreanTag = tagTranslations[tagText.toLowerCase()] || tagText;
+                        return (
+                          <span 
+                            key={`tag-${index}`}
+                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                          >
+                            #{koreanTag}
+                          </span>
+                        );
+                      })}
+                      {/* AI 라벨도 같은 스타일로 (한국어로 번역) */}
+                      {(post?.aiLabels || []).map((label, index) => {
+                        const labelText = typeof label === 'string' ? label.replace('#', '') : label.name || '라벨';
+                        const koreanLabel = tagTranslations[labelText.toLowerCase()] || labelText;
+                        return (
+                          <span 
+                            key={`ai-${index}`}
+                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                          >
+                            #{koreanLabel}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                      태그가 없습니다
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="pl-8">
-                {(post?.note || post?.content) ? (
-                  <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-                    {post.note || post.content}
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    작성자가 남긴 노트가 없습니다.
-                  </p>
-                )}
-              </div>
-            </div>
 
-            {/* 🏷️ 해시태그 - 항상 표시 */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-primary text-2xl">tag</span>
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">태그</h3>
+              {/* 📝 작성자 노트 */}
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-primary text-2xl flex-shrink-0">edit_note</span>
+                <div className="flex-1">
+                  {(post?.note || post?.content) ? (
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                      {post.note || post.content}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                      작성자가 남긴 노트가 없습니다
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="pl-8">
-                {((post?.tags && post.tags.length > 0) || (post?.aiLabels && post.aiLabels.length > 0)) ? (
-                  <div className="flex flex-wrap gap-2">
-                    {/* 태그 표시 (문자열) */}
-                    {(post?.tags || []).map((tag, index) => (
-                      <span 
-                        key={`tag-${index}`}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
-                      >
-                        #{typeof tag === 'string' ? tag : tag.name || '태그'}
-                      </span>
-                    ))}
-                    {/* AI 라벨 표시 (객체에서 name만 추출) */}
-                    {(post?.aiLabels || []).map((label, index) => (
-                      <span 
-                        key={`ai-${index}`}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
-                      >
-                        #{typeof label === 'string' ? label : label.name || '라벨'}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    태그가 없습니다.
-                  </p>
-                )}
-              </div>
+
             </div>
           </div>
 
-          <div className="flex items-center gap-4 py-2 border-b border-gray-200 dark:border-gray-700">
-            <button 
-              onClick={handleLike}
-              className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-primary transition-colors"
-            >
-              <span className={`material-symbols-outlined text-2xl ${liked ? 'text-red-500' : ''}`} style={liked ? { fontVariationSettings: "'FILL' 1" } : {}}>
-                {liked ? 'favorite' : 'favorite_border'}
-              </span>
-              <span className="text-sm font-medium">{likeCount}</span>
-            </button>
+          {/* 액션 버튼 - 크고 명확하게 */}
+          <div className="px-4 py-4 flex items-center justify-between bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              {/* 좋아요 */}
+              <button 
+                onClick={handleLike}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <span className={`material-symbols-outlined text-2xl ${liked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'}`} style={liked ? { fontVariationSettings: "'FILL' 1" } : {}}>
+                  {liked ? 'favorite' : 'favorite_border'}
+                </span>
+                <span className={`text-base font-semibold ${liked ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                  {likeCount}
+                </span>
+              </button>
+              
+              {/* 댓글 */}
+              <button 
+                onClick={() => document.getElementById('comment-input')?.focus()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-full hover:bg-primary/10 transition-colors"
+              >
+                <span className="material-symbols-outlined text-2xl text-gray-600 dark:text-gray-400">chat_bubble_outline</span>
+                <span className="text-base font-semibold text-gray-700 dark:text-gray-300">{comments.length}</span>
+              </button>
+            </div>
+            
+            {/* 공유 */}
             <button 
               onClick={handleShare}
-              className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-primary transition-colors"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              <span className="material-symbols-outlined text-2xl">ios_share</span>
+              <span className="material-symbols-outlined text-2xl text-gray-600 dark:text-gray-400">ios_share</span>
             </button>
           </div>
 
-          <div className="flex flex-col gap-4 py-4">
-            <h2 className="text-lg font-bold text-[#181410] dark:text-white">질문하기</h2>
+          {/* 댓글 섹션 */}
+          <div className="flex flex-col gap-4 px-4 py-5 bg-white dark:bg-gray-900">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#181410] dark:text-white">
+                댓글 & 질문 {comments.length > 0 && `(${comments.length})`}
+              </h2>
+            </div>
 
+            {/* 댓글 입력 */}
             <div className="flex gap-2 items-center">
               <input
-                className="flex-grow bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-lg h-12 px-4 text-[#181410] dark:text-white placeholder:text-gray-500 focus:ring-primary focus:border-primary focus:outline-none"
-                placeholder="현장 상황에 대한 질문을 입력하세요."
+                id="comment-input"
+                className="flex-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl h-14 px-4 text-sm text-[#181410] dark:text-white placeholder:text-gray-400 placeholder:text-sm focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                placeholder="댓글이나 질문을 입력하세요 💬"
                 type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendQuestion()}
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
               />
               <button
-                onClick={handleSendQuestion}
-                disabled={!question.trim() || submitting}
-                className={`flex-shrink-0 rounded-lg h-12 w-16 flex items-center justify-center font-bold transition-colors ${
-                  question.trim() && !submitting
+                onClick={handleAddComment}
+                disabled={!commentText.trim()}
+                className={`flex-shrink-0 rounded-xl h-14 px-6 flex items-center justify-center font-bold text-base transition-colors ${
+                  commentText.trim()
                     ? 'bg-primary text-white hover:bg-primary/90'
                     : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {submitting ? '...' : '전송'}
+                전송
               </button>
             </div>
 
-            <div className="flex flex-col gap-4 mt-4">
-              {qnaList.map((item) => (
-                <div 
-                  key={item.id} 
-                  className={`flex gap-3 ${item.type === 'answer' ? 'ml-8' : ''}`}
-                >
-                  <div
-                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-8 w-8 flex-shrink-0"
-                    style={{ backgroundImage: `url("${item.avatar}")` }}
-                  ></div>
-                  <div className="flex flex-col flex-1">
-                    <div className={`p-3 rounded-lg rounded-tl-none ${
-                      item.type === 'answer'
-                        ? 'bg-primary/10 dark:bg-primary/20'
-                        : 'bg-gray-100 dark:bg-gray-800'
-                    }`}>
-                      <p className="text-sm font-bold text-[#181410] dark:text-white">
-                        {item.user}
-                        {item.isAuthor && (
-                          <span className="text-primary text-xs font-semibold ml-1.5">작성자</span>
-                        )}
-                      </p>
-                      <p className="text-sm text-gray-800 dark:text-gray-300 mt-1">
-                        {item.content}
+            {/* 댓글 목록 */}
+            {comments.length > 0 && (
+              <div className="flex flex-col gap-3 mt-2">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-3">
+                    <div
+                      className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-8 w-8 flex-shrink-0"
+                      style={{ backgroundImage: `url("${comment.avatar}")` }}
+                    ></div>
+                    <div className="flex flex-col flex-1">
+                      <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg rounded-tl-none">
+                        <p className="text-sm font-bold text-[#181410] dark:text-white">
+                          {comment.user}
+                        </p>
+                        <p className="text-sm text-gray-800 dark:text-gray-300 mt-1">
+                          {comment.content}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {getTimeAgo(comment.timestamp)}
                       </p>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {item.time}
-                    </p>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </main>
       </div>
