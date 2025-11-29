@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
 import { filterRecentPosts, getTimeAgo } from '../utils/timeUtils';
 import { isPostLiked } from '../utils/socialInteractions';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -54,22 +55,11 @@ const PostItem = ({ item, index, onPress }) => {
           </View>
         )}
 
-        {/* 좌측 상단 카테고리 아이콘 */}
-        {item.categoryName && (
-          <View style={categoryStyles.categoryIcon}>
-            <Text style={categoryStyles.categoryEmoji}>
-              {item.categoryName === '개화 상황' && '🌸'}
-              {item.categoryName === '맛집 정보' && '🍜'}
-              {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-            </Text>
-          </View>
-        )}
-
         {/* 우측 하단 하트 아이콘 */}
         <View style={categoryStyles.likeBadge}>
           <Ionicons
             name={isLiked ? 'heart' : 'heart-outline'}
-            size={16}
+            size={16} // text-base = 16px
             color={isLiked ? COLORS.error : COLORS.text}
           />
           <Text style={categoryStyles.likeCount}>{likeCount}</Text>
@@ -334,21 +324,26 @@ const RegionCategoryScreen = () => {
   }, [handleItemPress]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{regionName}</Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 헤더 - 웹과 동일한 구조 */}
+        <ScreenHeader>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{regionName}</Text>
+            <View style={styles.headerPlaceholder} />
+          </View>
+        </ScreenHeader>
 
-      {/* 탭 */}
-      <View style={styles.tabsContainer}>
+        {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
+          {/* 탭 */}
+          <View style={styles.tabsContainer}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.id}
@@ -412,7 +407,9 @@ const RegionCategoryScreen = () => {
           }
         />
       )}
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -425,56 +422,65 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md, // p-4
+    paddingVertical: SPACING.md, // p-4
+    backgroundColor: COLORS.backgroundLight, // bg-white
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#E4E4E7', // border-zinc-200
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48, // size-12 = 48px
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8, // rounded-lg
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
+    fontSize: 20, // text-xl = 20px
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-primary-light
   },
   headerPlaceholder: {
-    width: 40,
+    width: 40, // w-10 = 40px
   },
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#E4E4E7', // border-zinc-200
     backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md,
   },
   tab: {
     flex: 1,
-    paddingVertical: SPACING.md,
+    paddingTop: SPACING.sm, // pt-2
+    paddingBottom: 13, // pb-[13px]
+    paddingHorizontal: SPACING.md, // px-3
     alignItems: 'center',
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: COLORS.primary,
+    borderBottomColor: COLORS.primary, // border-b-primary
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12, // text-xs
     fontWeight: 'bold',
-    color: COLORS.textSecondary,
+    color: COLORS.textSecondary, // text-text-secondary-light
   },
   tabTextActive: {
-    color: COLORS.primary,
+    color: COLORS.primary, // text-primary
   },
   gridContainer: {
-    padding: SPACING.md,
+    padding: SPACING.md, // p-4 = 16px
   },
   gridRow: {
     justifyContent: 'space-between',
-    marginBottom: SPACING.md,
+    marginBottom: 0, // gap-4는 각 아이템의 marginBottom으로 처리
   },
   emptyContainer: {
     flex: 1,
@@ -524,14 +530,14 @@ const styles = StyleSheet.create({
 const categoryStyles = StyleSheet.create({
   postItem: {
     width: (SCREEN_WIDTH - SPACING.md * 3) / 2,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.md, // gap-4 = 16px
   },
   postImageContainer: {
     width: '100%',
-    aspectRatio: 4 / 5,
-    borderRadius: 12,
+    aspectRatio: 4 / 5, // aspect-[4/5]
+    borderRadius: 12, // rounded-lg
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
+    marginBottom: 12, // mb-3 = 12px
     backgroundColor: COLORS.borderLight,
     position: 'relative',
   },
@@ -544,46 +550,30 @@ const categoryStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  categoryIcon: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  categoryEmoji: {
-    fontSize: 24,
-  },
   likeBadge: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    bottom: 12, // bottom-3 = 12px
+    right: 12, // right-3 = 12px
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    gap: 4, // gap-1 = 4px
+    backgroundColor: 'rgba(255,255,255,0.9)', // bg-white/90
+    paddingHorizontal: 12, // px-3 = 12px
+    paddingVertical: 6, // py-1.5 = 6px
+    borderRadius: 999, // rounded-full
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1, // shadow-md
     shadowRadius: 4,
     elevation: 3,
   },
+  likeIcon: {
+    fontSize: 16, // text-base = 16px (웹에서는 material-symbols-outlined text-base)
+  },
   likeCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 14, // text-sm = 14px
+    fontWeight: '600', // font-semibold
+    color: COLORS.text, // text-gray-700
   },
   postTextContainer: {
     marginTop: SPACING.sm,
@@ -596,18 +586,19 @@ const categoryStyles = StyleSheet.create({
     gap: SPACING.xs,
   },
   locationText: {
-    fontSize: 16,
+    fontSize: 16, // text-base = 16px
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-primary-light
     flex: 1,
   },
   timeText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+    fontSize: 12, // text-xs = 12px
+    color: COLORS.textSecondary, // text-text-secondary-light
   },
   subLocationText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSecondary, // text-text-secondary-light
+    marginTop: 2, // mt-0.5 = 2px
   },
   tagsScroll: {
     marginVertical: SPACING.xs,
@@ -616,21 +607,21 @@ const categoryStyles = StyleSheet.create({
     gap: SPACING.xs,
   },
   tagBadge: {
-    backgroundColor: COLORS.primary + '10',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginRight: SPACING.xs,
+    backgroundColor: COLORS.primary + '1A', // bg-primary/10
+    paddingHorizontal: 10, // px-2.5 = 10px
+    paddingVertical: 4, // py-1 = 4px
+    borderRadius: 999, // rounded-full
+    marginRight: 6, // gap-1.5 = 6px
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.primary,
+    fontSize: 12, // text-xs = 12px
+    fontWeight: '500', // font-medium
+    color: COLORS.primary, // text-primary
   },
   noteText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSecondary, // text-text-secondary-light
+    lineHeight: 20, // line-clamp-2 (대략 2줄)
   },
 });
 

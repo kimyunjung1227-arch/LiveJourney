@@ -7,18 +7,39 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 import LiveJourneyLogo from '../components/LiveJourneyLogo';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants/styles';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const WelcomeScreen = () => {
   const navigation = useNavigation();
+  const { testerLogin } = useAuth();
 
   const handleStart = () => {
     navigation.navigate('Start');
   };
 
+  const handleTesterLogin = async () => {
+    try {
+      const result = await testerLogin();
+      if (result.success) {
+        navigation.replace('MainTabs');
+      } else {
+        // 실패해도 로그인 화면으로 이동
+        navigation.navigate('Start');
+      }
+    } catch (error) {
+      console.error('테스터 로그인 오류:', error);
+      navigation.navigate('Start');
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenLayout>
+      <ScreenContent>
+        <ScreenBody>
       {/* 중앙 컨텐츠 */}
       <View style={styles.content}>
         <View style={styles.logoContainer}>
@@ -32,6 +53,14 @@ const WelcomeScreen = () => {
       {/* 하단 버튼 */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
+          style={[styles.button, styles.testerButton]}
+          onPress={handleTesterLogin}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="bug" size={20} color={COLORS.textWhite} />
+          <Text style={styles.buttonText}>테스터 계정으로 바로 시작</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.button}
           onPress={handleStart}
           activeOpacity={0.8}
@@ -39,7 +68,9 @@ const WelcomeScreen = () => {
           <Text style={styles.buttonText}>앱 시작하기</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -71,6 +102,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.xxl,
+    gap: SPACING.md,
   },
   button: {
     backgroundColor: COLORS.primary,
@@ -78,6 +110,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.full,
     justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.sm,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -86,6 +120,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 12,
+  },
+  testerButton: {
+    backgroundColor: '#9333ea',
   },
   buttonText: {
     ...TYPOGRAPHY.body,

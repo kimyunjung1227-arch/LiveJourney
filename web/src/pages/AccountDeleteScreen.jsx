@@ -49,11 +49,9 @@ const AccountDeleteScreen = () => {
       <header className="flex-shrink-0 flex h-16 items-center justify-between border-b border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark px-4">
         <button 
           onClick={() => navigate('/settings')}
-          className="flex size-12 shrink-0 items-center justify-start cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="flex size-12 shrink-0 items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <span className="material-symbols-outlined text-content-light dark:text-content-dark" style={{ fontSize: '24px' }}>
-            arrow_back
-          </span>
+          <span className="material-symbols-outlined text-2xl text-content-light dark:text-content-dark">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] text-content-light dark:text-content-dark">
           계정 삭제

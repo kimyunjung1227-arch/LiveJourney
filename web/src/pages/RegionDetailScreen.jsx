@@ -63,12 +63,14 @@ const RegionDetailScreen = () => {
     
     const bloomPosts = regionPosts
       .filter(post => post.category === 'bloom')
-      .map(post => ({ // slice 제거 - 모든 사진 표시!
+      .map(post => ({
+        ...post, // 원본 게시물의 모든 필드 포함
         id: post.id,
         images: post.images || [],
         videos: post.videos || [],
         image: post.images?.[0] || post.videos?.[0] || post.image,
         time: post.timeLabel || '방금',
+        timeLabel: post.timeLabel || '방금',
         category: post.categoryName,
         categoryName: post.categoryName,
         labels: post.aiLabels,
@@ -78,17 +80,24 @@ const RegionDetailScreen = () => {
         location: post.location,
         tags: post.tags || post.aiLabels || [],
         note: post.note || post.content,
-        likes: post.likes || post.likeCount || 0
+        likes: post.likes || post.likeCount || 0,
+        user: post.user || '여행자',
+        userId: post.userId,
+        comments: post.comments || [],
+        qnaList: post.qnaList || [],
+        timestamp: post.timestamp || post.createdAt || post.time,
       }));
     
     const touristPosts = regionPosts
       .filter(post => post.category === 'landmark' || post.category === 'scenic')
-      .map(post => ({ // slice 제거 - 모든 사진 표시!
+      .map(post => ({
+        ...post, // 원본 게시물의 모든 필드 포함
         id: post.id,
         images: post.images || [],
         videos: post.videos || [],
         image: post.images?.[0] || post.videos?.[0] || post.image,
         time: post.timeLabel || '방금',
+        timeLabel: post.timeLabel || '방금',
         category: post.categoryName,
         categoryName: post.categoryName,
         labels: post.aiLabels,
@@ -98,17 +107,24 @@ const RegionDetailScreen = () => {
         location: post.location,
         tags: post.tags || post.aiLabels || [],
         note: post.note || post.content,
-        likes: post.likes || post.likeCount || 0
+        likes: post.likes || post.likeCount || 0,
+        user: post.user || '여행자',
+        userId: post.userId,
+        comments: post.comments || [],
+        qnaList: post.qnaList || [],
+        timestamp: post.timestamp || post.createdAt || post.time,
       }));
     
     const foodPosts = regionPosts
       .filter(post => post.category === 'food')
-      .map(post => ({ // slice 제거 - 모든 사진 표시!
+      .map(post => ({
+        ...post, // 원본 게시물의 모든 필드 포함
         id: post.id,
         images: post.images || [],
         videos: post.videos || [],
         image: post.images?.[0] || post.videos?.[0] || post.image,
         time: post.timeLabel || '방금',
+        timeLabel: post.timeLabel || '방금',
         category: post.categoryName,
         categoryName: post.categoryName,
         labels: post.aiLabels,
@@ -118,16 +134,23 @@ const RegionDetailScreen = () => {
         location: post.location,
         tags: post.tags || post.aiLabels || [],
         note: post.note || post.content,
-        likes: post.likes || post.likeCount || 0
+        likes: post.likes || post.likeCount || 0,
+        user: post.user || '여행자',
+        userId: post.userId,
+        comments: post.comments || [],
+        qnaList: post.qnaList || [],
+        timestamp: post.timestamp || post.createdAt || post.time,
       }));
     
     const realtimePosts = regionPosts
-      .map(post => ({ // slice 제거 - 모든 사진 표시!
+      .map(post => ({
+        ...post, // 원본 게시물의 모든 필드 포함
         id: post.id,
         images: post.images || [],
         videos: post.videos || [],
         image: post.images?.[0] || post.videos?.[0] || post.image,
         time: post.timeLabel || '방금',
+        timeLabel: post.timeLabel || '방금',
         category: post.categoryName || '일반',
         categoryName: post.categoryName,
         labels: post.aiLabels,
@@ -137,7 +160,12 @@ const RegionDetailScreen = () => {
         location: post.location,
         tags: post.tags || post.aiLabels || [],
         note: post.note || post.content,
-        likes: post.likes || post.likeCount || 0
+        likes: post.likes || post.likeCount || 0,
+        user: post.user || '여행자',
+        userId: post.userId,
+        comments: post.comments || [],
+        qnaList: post.qnaList || [],
+        timestamp: post.timestamp || post.createdAt || post.time,
       }));
     
     setBloomPhotos(bloomPosts.slice(0, 6));
@@ -194,17 +222,31 @@ const RegionDetailScreen = () => {
     loadRegionData();
     fetchWeatherData();
     fetchTrafficData();
-  }, [loadRegionData, fetchWeatherData, fetchTrafficData]);
+    
+    // 게시물 업데이트 이벤트 리스너
+    const handlePostsUpdate = () => {
+      console.log(`🔄 ${region.name} 지역상세 - 게시물 업데이트 감지`);
+      loadRegionData();
+    };
+    
+    window.addEventListener('postsUpdated', handlePostsUpdate);
+    window.addEventListener('newPostsAdded', handlePostsUpdate);
+    
+    return () => {
+      window.removeEventListener('postsUpdated', handlePostsUpdate);
+      window.removeEventListener('newPostsAdded', handlePostsUpdate);
+    };
+  }, [loadRegionData, fetchWeatherData, fetchTrafficData, region.name]);
 
   return (
     <div className="screen-layout bg-background-light dark:bg-background-dark">
       <div className="screen-content">
-        <header className="screen-header flex items-center justify-between border-b border-gray-200 bg-white p-4 pb-3 shadow-sm dark:border-gray-700 dark:bg-gray-900 relative z-50">
+        <header className="screen-header flex items-center justify-between border-b border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 relative z-50">
         <button 
           onClick={() => navigate(-1)}
           className="flex size-12 shrink-0 items-center justify-center text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>arrow_back</span>
+          <span className="material-symbols-outlined text-2xl">arrow_back</span>
         </button>
         <h1 className="flex-1 text-center text-lg font-bold leading-tight tracking-[-0.015em] text-content-light dark:text-content-dark">
           {region.name}
@@ -281,11 +323,21 @@ const RegionDetailScreen = () => {
               const likeCount = photo.likes || photo.likeCount || 0;
               
               return (
-                <div 
-                  key={photo.id} 
+              <div 
+                key={photo.id} 
                   className="cursor-pointer group"
-                  onClick={() => navigate(`/post/${photo.id}`, { state: { post: photo } })}
-                >
+                onClick={() => {
+                  const allPosts = [...realtimePhotos, ...bloomPhotos, ...touristSpots, ...foodPhotos];
+                  const currentIndex = allPosts.findIndex(p => p.id === photo.id);
+                  navigate(`/post/${photo.id}`, { 
+                    state: { 
+                      post: photo,
+                      allPosts: allPosts,
+                      currentPostIndex: currentIndex >= 0 ? currentIndex : 0
+                    } 
+                  });
+                }}
+              >
                   <div>
                     {/* 이미지 */}
                     <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-3">
@@ -299,24 +351,14 @@ const RegionDetailScreen = () => {
                           playsInline
                         />
                       ) : (
-                        <img
+                <img
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          src={photo.image}
-                          alt={`${region.name} 실시간 정보`}
-                        />
+                  src={photo.image}
+                  alt={`${region.name} 실시간 정보`}
+                />
                       )}
-                      
-                      {/* 좌측 상단 카테고리 아이콘 */}
-                      {photo.categoryName && (
-                        <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md">
-                          <span className="text-2xl">
-                            {photo.categoryName === '개화 상황' && '🌸'}
-                            {photo.categoryName === '맛집 정보' && '🍜'}
-                            {(!photo.categoryName || !['개화 상황', '맛집 정보'].includes(photo.categoryName)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
-                      
+                    
+                    
                       {/* 우측 하단 하트 아이콘 */}
                       <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">
                         <span className={`material-symbols-outlined text-base ${isLiked ? 'text-red-500 fill' : 'text-gray-600'}`}>
@@ -335,9 +377,9 @@ const RegionDetailScreen = () => {
                             {photo.detailedLocation || photo.placeName || photo.location || region.name}
                           </p>
                           {/* 업로드 시간 - 지역 옆에 */}
-                          {photo.time && (
+                        {photo.time && (
                             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                              {photo.time}
+                            {photo.time}
                             </p>
                           )}
                         </div>
@@ -363,11 +405,11 @@ const RegionDetailScreen = () => {
                       {photo.note && (
                         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark line-clamp-2">
                           {photo.note}
-                        </p>
-                      )}
-                    </div>
+                          </p>
+                        )}
+                      </div>
                   </div>
-                </div>
+              </div>
               );
             })}
           </div>
@@ -416,11 +458,21 @@ const RegionDetailScreen = () => {
                   const likeCount = spot.likes || spot.likeCount || 0;
                   
                   return (
-                    <div 
-                      key={spot.id} 
+              <div 
+                key={spot.id} 
                       className="cursor-pointer group"
-                      onClick={() => navigate(`/post/${spot.id}`, { state: { post: spot } })}
-                    >
+                onClick={() => {
+                  const allPosts = [...realtimePhotos, ...bloomPhotos, ...touristSpots, ...foodPhotos];
+                  const currentIndex = allPosts.findIndex(p => p.id === spot.id);
+                  navigate(`/post/${spot.id}`, { 
+                    state: { 
+                      post: spot,
+                      allPosts: allPosts,
+                      currentPostIndex: currentIndex >= 0 ? currentIndex : 0
+                    } 
+                  });
+                }}
+              >
                       <div>
                         {/* 이미지 */}
                         <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-3">
@@ -434,27 +486,23 @@ const RegionDetailScreen = () => {
                               playsInline
                             />
                           ) : (
-                            <img
+                <img
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              src={spot.image}
-                              alt={`${region.name} 추천 장소`}
-                            />
+                  src={spot.image}
+                  alt={`${region.name} 추천 장소`}
+                />
                           )}
                           
-                          {/* 좌측 상단 카테고리 아이콘 */}
-                          <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md">
-                            <span className="text-2xl">🏞️</span>
-                          </div>
-                          
+                    
                           {/* 우측 하단 하트 아이콘 */}
                           <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">
                             <span className={`material-symbols-outlined text-base ${isLiked ? 'text-red-500 fill' : 'text-gray-600'}`}>
                               favorite
-                            </span>
+                      </span>
                             <span className="text-sm font-semibold text-gray-700">{likeCount}</span>
                           </div>
-                        </div>
-                        
+                    </div>
+                    
                         {/* 이미지 밖 하단 텍스트 */}
                         <div className="space-y-2">
                           {/* 지역 상세 정보 */}
@@ -462,20 +510,20 @@ const RegionDetailScreen = () => {
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
                                 {spot.detailedLocation || spot.placeName || spot.location || region.name}
-                              </p>
+                        </p>
                               {/* 업로드 시간 - 지역 옆에 */}
-                              {spot.time && (
+                      {spot.time && (
                                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                  {spot.time}
-                                </p>
-                              )}
-                            </div>
+                          {spot.time}
+                        </p>
+                      )}
+                    </div>
                             {spot.detailedLocation && spot.detailedLocation !== spot.location && (
                               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
                                 {spot.location}
                               </p>
                             )}
-                          </div>
+                  </div>
                           
                           {/* 해시태그 - 지역 이름 밑에 (줄 바꿈 없이) */}
                           {spot.tags && spot.tags.length > 0 && (
@@ -545,11 +593,21 @@ const RegionDetailScreen = () => {
                   const likeCount = photo.likes || photo.likeCount || 0;
                   
                   return (
-                    <div 
-                      key={photo.id} 
+                  <div 
+                    key={photo.id} 
                       className="cursor-pointer group"
-                      onClick={() => navigate(`/post/${photo.id}`, { state: { post: photo } })}
-                    >
+                    onClick={() => {
+                      const allPosts = [...realtimePhotos, ...bloomPhotos, ...touristSpots, ...foodPhotos];
+                      const currentIndex = allPosts.findIndex(p => p.id === photo.id);
+                      navigate(`/post/${photo.id}`, { 
+                        state: { 
+                          post: photo,
+                          allPosts: allPosts,
+                          currentPostIndex: currentIndex >= 0 ? currentIndex : 0
+                        } 
+                      });
+                    }}
+              >
                       <div>
                         {/* 이미지 */}
                         <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-3">
@@ -563,27 +621,23 @@ const RegionDetailScreen = () => {
                               playsInline
                             />
                           ) : (
-                            <img
+                <img
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              src={photo.image}
-                              alt={`${region.name} 개화 상황`}
-                            />
+                      src={photo.image}
+                  alt={`${region.name} 개화 상황`}
+                />
                           )}
                           
-                          {/* 좌측 상단 카테고리 아이콘 */}
-                          <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md">
-                            <span className="text-2xl">🌸</span>
-                          </div>
-                          
+                    
                           {/* 우측 하단 하트 아이콘 */}
                           <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">
                             <span className={`material-symbols-outlined text-base ${isLiked ? 'text-red-500 fill' : 'text-gray-600'}`}>
                               favorite
-                            </span>
+                      </span>
                             <span className="text-sm font-semibold text-gray-700">{likeCount}</span>
                           </div>
-                        </div>
-                        
+                    </div>
+                    
                         {/* 이미지 밖 하단 텍스트 */}
                         <div className="space-y-2">
                           {/* 지역 상세 정보 */}
@@ -591,20 +645,20 @@ const RegionDetailScreen = () => {
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
                                 {photo.detailedLocation || photo.placeName || photo.location || region.name}
-                              </p>
+                        </p>
                               {/* 업로드 시간 - 지역 옆에 */}
-                              {photo.time && (
+                      {photo.time && (
                                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                  {photo.time}
-                                </p>
-                              )}
-                            </div>
+                          {photo.time}
+                        </p>
+                      )}
+                    </div>
                             {photo.detailedLocation && photo.detailedLocation !== photo.location && (
                               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
                                 {photo.location}
                               </p>
                             )}
-                          </div>
+                  </div>
                           
                           {/* 해시태그 - 지역 이름 밑에 (줄 바꿈 없이) */}
                           {photo.tags && photo.tags.length > 0 && (
@@ -666,11 +720,21 @@ const RegionDetailScreen = () => {
                   const likeCount = food.likes || food.likeCount || 0;
                   
                   return (
-                    <div 
-                      key={food.id} 
+                  <div 
+                    key={food.id} 
                       className="cursor-pointer group"
-                      onClick={() => navigate(`/post/${food.id}`, { state: { post: food } })}
-                    >
+                    onClick={() => {
+                      const allPosts = [...realtimePhotos, ...bloomPhotos, ...touristSpots, ...foodPhotos];
+                      const currentIndex = allPosts.findIndex(p => p.id === food.id);
+                      navigate(`/post/${food.id}`, { 
+                        state: { 
+                          post: food,
+                          allPosts: allPosts,
+                          currentPostIndex: currentIndex >= 0 ? currentIndex : 0
+                        } 
+                      });
+                    }}
+                  >
                       <div>
                         {/* 이미지 */}
                         <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-3">
@@ -684,27 +748,23 @@ const RegionDetailScreen = () => {
                               playsInline
                             />
                           ) : (
-                            <img
+                    <img
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              src={food.image}
-                              alt={`${region.name} 맛집`}
-                            />
+                      src={food.image}
+                      alt={`${region.name} 맛집`}
+                    />
                           )}
                           
-                          {/* 좌측 상단 카테고리 아이콘 */}
-                          <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md">
-                            <span className="text-2xl">🍜</span>
-                          </div>
-                          
+                    
                           {/* 우측 하단 하트 아이콘 */}
                           <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">
                             <span className={`material-symbols-outlined text-base ${isLiked ? 'text-red-500 fill' : 'text-gray-600'}`}>
                               favorite
-                            </span>
+                      </span>
                             <span className="text-sm font-semibold text-gray-700">{likeCount}</span>
                           </div>
-                        </div>
-                        
+                    </div>
+                    
                         {/* 이미지 밖 하단 텍스트 */}
                         <div className="space-y-2">
                           {/* 지역 상세 정보 */}
@@ -712,20 +772,20 @@ const RegionDetailScreen = () => {
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
                                 {food.detailedLocation || food.placeName || food.location || region.name}
-                              </p>
+                        </p>
                               {/* 업로드 시간 - 지역 옆에 */}
-                              {food.time && (
+                      {food.time && (
                                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                  {food.time}
-                                </p>
-                              )}
-                            </div>
+                          {food.time}
+                        </p>
+                      )}
+                </div>
                             {food.detailedLocation && food.detailedLocation !== food.location && (
                               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
                                 {food.location}
                               </p>
                             )}
-                          </div>
+              </div>
                           
                           {/* 해시태그 - 지역 이름 밑에 (줄 바꿈 없이) */}
                           {food.tags && food.tags.length > 0 && (

@@ -52,7 +52,6 @@ const LiveJourneyLogo = ({ size = 80, showText = true, className = '' }) => {
       {showText && (
         <View style={styles.textContainer}>
           <Text style={styles.logoText}>LiveJourney</Text>
-          <Text style={styles.subtitle}>헛걸음 없는 여행</Text>
         </View>
       )}
     </View>

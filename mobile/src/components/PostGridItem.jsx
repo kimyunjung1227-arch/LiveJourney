@@ -58,8 +58,8 @@ const PostGridItem = ({ post, index, isEditMode, isSelected, onPress, onToggleSe
           <View style={styles.likeBadge}>
             <Ionicons
               name={isLiked ? 'heart' : 'heart-outline'}
-              size={14}
-              color={isLiked ? COLORS.error : COLORS.text}
+              size={14} // text-sm = 14px
+              color={isLiked ? '#EF4444' : '#4B5563'} // text-red-500 (활성화) / text-gray-600 (비활성화)
             />
             <Text style={styles.likeCount}>{likeCount}</Text>
           </View>
@@ -87,15 +87,15 @@ const PostGridItem = ({ post, index, isEditMode, isSelected, onPress, onToggleSe
 
 const styles = StyleSheet.create({
   postCard: {
-    width: '48%',
-    marginBottom: SPACING.md,
+    width: '48%', // grid-cols-2 gap-4 (2열 그리드, 16px 간격)
+    marginBottom: 0, // gap으로 처리
   },
   postImageContainer: {
     width: '100%',
-    aspectRatio: 1,
-    borderRadius: 12,
+    aspectRatio: 1, // aspect-square (1:1 비율)
+    borderRadius: 12, // rounded-lg
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.sm, // mb-2 = 8px
     backgroundColor: COLORS.borderLight,
     position: 'relative',
   },
@@ -115,48 +115,48 @@ const styles = StyleSheet.create({
   },
   checkboxContainer: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 8, // top-2 = 8px
+    right: 8, // right-2 = 8px
     zIndex: 10,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.backgroundLight,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 24, // w-6 = 24px
+    height: 24, // h-6 = 24px
+    borderRadius: 12, // rounded-full
+    borderWidth: 2, // border-2
+    borderColor: '#D1D5DB', // border-gray-300 (비활성화)
+    backgroundColor: 'white', // bg-white (비활성화)
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary, // bg-primary
+    borderColor: COLORS.primary, // border-primary
   },
   likeBadge: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: 8, // bottom-2 = 8px
+    right: 8, // right-2 = 8px
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
+    gap: 4, // gap-1 = 4px
+    backgroundColor: 'rgba(255,255,255,0.8)', // bg-white/80 backdrop-blur-sm (backdrop-blur는 React Native에서 지원 안 함)
+    paddingHorizontal: 8, // px-2 = 8px
+    paddingVertical: 4, // py-1 = 4px
+    borderRadius: 999, // rounded-full
   },
   likeCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 12, // text-xs = 12px
+    fontWeight: '600', // font-semibold
+    color: '#374151', // text-gray-700 (웹과 동일)
   },
   postTextContainer: {
-    gap: SPACING.xs,
+    gap: SPACING.xs, // space-y-1 = 4px
   },
   postTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 14, // text-sm = 14px
+    fontWeight: '600', // font-semibold
+    color: COLORS.text, // text-text-primary-light
     lineHeight: 20,
   },
   tagsContainer: {

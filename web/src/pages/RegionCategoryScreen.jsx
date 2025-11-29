@@ -281,12 +281,12 @@ const RegionCategoryScreen = () => {
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}
-            className="flex size-10 shrink-0 items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="flex size-12 shrink-0 items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
           <div className="flex flex-col">
-            <h1 className="text-xl font-bold">{regionName}</h1>
+          <h1 className="text-xl font-bold">{regionName}</h1>
             {(() => {
               // 첫 번째 게시물의 detailedLocation을 가져와서 표시
               const firstItem = displayedItems.length > 0 ? displayedItems[0] : null;
@@ -348,9 +348,9 @@ const RegionCategoryScreen = () => {
               const likeCount = item.likes || item.likesCount || 0;
               
               return (
-                <div 
-                  key={item.id} 
-                  className="cursor-pointer group"
+              <div 
+                key={item.id} 
+                className="cursor-pointer group"
                   onClick={() => {
                     const allPosts = getDisplayData();
                     const currentIndex = allPosts.findIndex(p => p.id === item.id);
@@ -362,7 +362,7 @@ const RegionCategoryScreen = () => {
                       } 
                     });
                   }}
-                >
+              >
                   <div>
                     {/* 이미지 */}
                       <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-3">
@@ -378,24 +378,14 @@ const RegionCategoryScreen = () => {
                           onMouseLeave={(e) => e.target.pause()}
                         />
                       ) : (
-                        <img
+                  <img
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          src={item.image}
-                          alt={item.location}
-                        />
+                    src={item.image}
+                    alt={item.location}
+                  />
                       )}
-                      
-                      {/* 좌측 상단 카테고리 아이콘 */}
-                      {item.categoryName && (
-                        <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md">
-                          <span className="text-2xl">
-                            {item.categoryName === '개화 상황' && '🌸'}
-                            {item.categoryName === '맛집 정보' && '🍜'}
-                            {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
-                      
+                  
+                  
                       {/* 우측 하단 하트 아이콘 */}
                       <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">
                         <span className={`material-symbols-outlined text-base ${isLiked ? 'text-red-500 fill' : 'text-gray-600'}`}>
@@ -423,8 +413,8 @@ const RegionCategoryScreen = () => {
                         {item.detailedLocation && item.detailedLocation !== item.location && (
                           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
                             {item.location}
-                          </p>
-                        )}
+                        </p>
+                      )}
                       </div>
                       
                       {/* 해시태그 - 지역 이름 밑에 (줄 바꿈 없이) */}

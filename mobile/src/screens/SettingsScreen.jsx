@@ -10,26 +10,34 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>설정</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 헤더 - 웹과 동일한 구조 */}
+        <ScreenHeader>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>설정</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </ScreenHeader>
+
+        {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
+          <View style={styles.content}>
           <Text style={styles.sectionTitle}>계정</Text>
           {/* 설정 항목들 */}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 

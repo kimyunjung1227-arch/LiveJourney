@@ -8,13 +8,16 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
 import { getUserDailyTitle } from '../utils/dailyTitleSystem';
+import { getEarnedBadgesForUser, BADGES } from '../utils/badgeSystem';
 import PostGridItem from '../components/PostGridItem';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const UserProfileScreen = () => {
   const navigation = useNavigation();
@@ -24,7 +27,15 @@ const UserProfileScreen = () => {
   const [user, setUser] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
   const [dailyTitle, setDailyTitle] = useState(null);
+  const [earnedBadges, setEarnedBadges] = useState([]);
+  const [representativeBadge, setRepresentativeBadge] = useState(null);
+  const [stats, setStats] = useState({
+    posts: 0,
+    likes: 0,
+    comments: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const [showAllBadges, setShowAllBadges] = useState(false);
 
   useEffect(() => {
     if (!userId) {
@@ -41,12 +52,24 @@ const UserProfileScreen = () => {
       // 해당 사용자의 정보 찾기 (게시물에서)
       const uploadedPostsJson = await AsyncStorage.getItem('uploadedPosts');
       const uploadedPosts = uploadedPostsJson ? JSON.parse(uploadedPostsJson) : [];
-      const userPost = uploadedPosts.find(p => p.userId === userId);
+      
+      // userId 매칭 (여러 형태 지원)
+      const userPost = uploadedPosts.find(p => {
+        const postUserId = p.userId || 
+                          (typeof p.user === 'string' ? p.user : p.user?.id) ||
+                          p.user;
+        return postUserId === userId;
+      });
       
       if (userPost) {
+        const postUserId = userPost.userId || 
+                          (typeof userPost.user === 'string' ? userPost.user : userPost.user?.id) ||
+                          userPost.user;
         const foundUser = {
           id: userId,
-          username: userPost.user || userPost.userId || '사용자',
+          username: (typeof userPost.user === 'string' ? userPost.user : userPost.user?.username) || 
+                   postUserId || 
+                   '사용자',
           profileImage: null
         };
         setUser(foundUser);
@@ -62,10 +85,82 @@ const UserProfileScreen = () => {
       // 24시간 타이틀 로드
       const title = await getUserDailyTitle(userId);
       setDailyTitle(title);
+      
+      // 대표 뱃지 로드 (먼저 설정)
+      const repBadgeJson = await AsyncStorage.getItem(`representativeBadge_${userId}`);
+      if (repBadgeJson) {
+        const repBadge = JSON.parse(repBadgeJson);
+        setRepresentativeBadge(repBadge);
+      } else {
+        // 개발 단계: 모든 사용자에게 임의로 대표 뱃지 설정 (실제 뱃지 시스템의 뱃지 사용)
+        const availableBadges = Object.values(BADGES).map(badge => ({
+          name: badge.name,
+          icon: badge.icon,
+          description: badge.description,
+          difficulty: badge.difficulty
+        }));
+        
+        // userId를 기반으로 일관된 뱃지 선택 (더 다양한 분산)
+        let badgeIndex = 0;
+        if (userId) {
+          // userId의 모든 문자를 합산하여 더 다양한 분산
+          const hash = userId.toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+          badgeIndex = hash % availableBadges.length;
+        }
+        const mockRepBadge = availableBadges[badgeIndex];
+        // 대표 뱃지를 저장하여 일관성 유지
+        await AsyncStorage.setItem(`representativeBadge_${userId}`, JSON.stringify(mockRepBadge));
+        console.log('📝 UserProfileScreen - 임의 대표 뱃지 설정:', mockRepBadge);
+        setRepresentativeBadge(mockRepBadge);
+      }
+      
+      // 뱃지 로드
+      let badges = await getEarnedBadgesForUser(userId);
+      console.log('📊 UserProfileScreen - 획득한 뱃지:', badges?.length || 0, '개');
+      
+      // 개발 단계: 획득한 뱃지가 없으면 임의로 몇 개 추가
+      if (!badges || badges.length === 0) {
+        const allBadges = [
+          { name: '첫 여행 기록', icon: '🎯', description: '첫 번째 여행 사진을 업로드했습니다!' },
+          { name: '여행 입문자', icon: '🌱', description: '3개의 여행 기록을 남겼습니다.' },
+          { name: '첫 좋아요', icon: '❤️', description: '첫 번째 좋아요를 받았습니다!' },
+          { name: '여행 탐험가', icon: '🧭', description: '10개의 여행 기록을 남긴 진정한 탐험가!' },
+          { name: '사진 수집가', icon: '📸', description: '25개의 여행 사진을 업로드했습니다.' },
+          { name: '인기 여행자', icon: '⭐', description: '50개의 좋아요를 받았습니다!' },
+          { name: '지역 전문가', icon: '🗺️', description: '5개 이상의 지역을 방문했습니다.' },
+          { name: '댓글 마스터', icon: '💬', description: '10개의 댓글을 작성했습니다.' },
+          { name: '여행 애호가', icon: '✈️', description: '다양한 여행지를 방문했습니다.' },
+        ];
+        // userId를 기반으로 일관된 뱃지 선택 (3-7개)
+        const badgeCount = 3 + (userId ? userId.toString().charCodeAt(0) % 5 : 0);
+        badges = allBadges.slice(0, badgeCount);
+        console.log('📝 UserProfileScreen - 임의 획득 뱃지 설정:', badges.length, '개');
+      }
+      
+      setEarnedBadges(badges || []);
 
-      // 해당 사용자의 게시물 로드
-      const posts = uploadedPosts.filter(post => post.userId === userId);
+      // 해당 사용자의 게시물 로드 (여러 형태 지원)
+      const posts = uploadedPosts.filter(post => {
+        const postUserId = post.userId || 
+                          (typeof post.user === 'string' ? post.user : post.user?.id) ||
+                          post.user;
+        return postUserId === userId;
+      });
       setUserPosts(posts);
+      
+      // 통계 계산
+      const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0);
+      const totalComments = posts.reduce((sum, post) => {
+        const comments = post.comments || [];
+        const qnaList = post.qnaList || [];
+        return sum + comments.length + qnaList.length;
+      }, 0);
+      
+      setStats({
+        posts: posts.length,
+        likes: totalLikes,
+        comments: totalComments,
+      });
     } catch (error) {
       console.error('사용자 데이터 로드 실패:', error);
     } finally {
@@ -78,46 +173,50 @@ const UserProfileScreen = () => {
       postId: post.id,
       post: post,
       allPosts: userPosts,
-      currentPostIndex: index,
+      currentPostIndex: index >= 0 ? index : userPosts.findIndex(p => p.id === post.id),
     });
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>로딩 중...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>사용자 정보를 불러올 수 없습니다.</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>프로필</Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 헤더 - 웹과 동일한 구조 */}
+        <ScreenHeader>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>프로필</Text>
+            <View style={styles.headerPlaceholder} />
+          </View>
+        </ScreenHeader>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
         {/* 프로필 정보 */}
         <View style={styles.profileSection}>
           <View style={styles.profileHeader}>
@@ -128,8 +227,36 @@ const UserProfileScreen = () => {
                 <Ionicons name="person" size={40} color={COLORS.textSubtle} />
               )}
             </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.username}>{user.username || '사용자'}</Text>
+            <View style={styles.profileInfoContainer}>
+              {/* 프로필 이름, 대표 뱃지, 획득 뱃지 숫자를 한 줄에 가로 배치 */}
+              <View style={styles.profileInfoRow}>
+                <Text style={styles.username}>{user.username || '사용자'}</Text>
+                
+                {/* 대표 뱃지 */}
+                {representativeBadge && (
+                  <View style={styles.representativeBadgeWithName}>
+                    <Text style={styles.representativeBadgeIconWithName}>
+                      {representativeBadge.icon}
+                    </Text>
+                    <Text style={styles.representativeBadgeName} numberOfLines={1}>
+                      {representativeBadge.name}
+                    </Text>
+                  </View>
+                )}
+                
+                {/* 획득한 뱃지 개수 표시 */}
+                {earnedBadges && earnedBadges.length > (representativeBadge ? 1 : 0) && (
+                  <TouchableOpacity
+                    style={styles.badgeCountButton}
+                    onPress={() => setShowAllBadges(true)}
+                  >
+                    <Text style={styles.badgeCountText}>
+                      +{earnedBadges.length - (representativeBadge ? 1 : 0)}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
               {dailyTitle && (
                 <View style={styles.titleBadge}>
                   <Text style={styles.titleIcon}>{dailyTitle.icon}</Text>
@@ -142,8 +269,16 @@ const UserProfileScreen = () => {
           {/* 통계 정보 */}
           <View style={styles.statsSection}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userPosts.length}</Text>
+              <Text style={styles.statNumber}>{stats.posts}</Text>
               <Text style={styles.statLabel}>게시물</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{stats.likes}</Text>
+              <Text style={styles.statLabel}>좋아요</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{stats.comments}</Text>
+              <Text style={styles.statLabel}>댓글</Text>
             </View>
           </View>
         </View>
@@ -171,8 +306,65 @@ const UserProfileScreen = () => {
             </View>
           )}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScreenBody>
+
+      {/* 뱃지 모두보기 모달 */}
+      <Modal
+        visible={showAllBadges}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAllBadges(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalSafeArea}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>획득한 뱃지</Text>
+                <TouchableOpacity
+                  onPress={() => setShowAllBadges(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={COLORS.text} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView 
+                style={styles.modalScrollView} 
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={true}
+              >
+                <View style={styles.allBadgesGrid}>
+                  {earnedBadges.map((badge, index) => {
+                    const isRepresentative = representativeBadge?.name === badge.name;
+                    return (
+                      <View
+                        key={`all-badge-${index}-${badge.name}`}
+                        style={styles.allBadgeItem}
+                      >
+                        <View style={[
+                          styles.allBadgeIconContainer,
+                          isRepresentative && styles.allBadgeIconContainerRepresentative
+                        ]}>
+                          <Text style={styles.allBadgeIcon}>{badge.icon || '🏆'}</Text>
+                        </View>
+                        <Text style={styles.allBadgeName} numberOfLines={2}>
+                          {badge.name}
+                        </Text>
+                        {isRepresentative && (
+                          <View style={styles.representativeLabel}>
+                            <Text style={styles.representativeLabelText}>대표</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -202,8 +394,8 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -225,8 +417,9 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: SPACING.lg,
+    gap: SPACING.md,
   },
   avatar: {
     width: 64,
@@ -235,21 +428,41 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.md,
+    flexShrink: 0,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
     borderRadius: 32,
   },
-  profileInfo: {
+  profileInfoContainer: {
     flex: 1,
+    minWidth: 0,
+  },
+  profileInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+    marginBottom: SPACING.xs,
   },
   username: {
     ...TYPOGRAPHY.h3,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: SPACING.xs,
+  },
+  representativeBadge: {
+    width: 40, // w-10 = 40px (웹 버전과 동일)
+    height: 40,
+    borderRadius: 20, // rounded-full
+    backgroundColor: COLORS.primary + '33', // bg-primary/20
+    borderWidth: 2,
+    borderColor: COLORS.primary, // border-primary
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  representativeBadgeIcon: {
+    fontSize: 20, // text-2xl = 20px (웹 버전과 동일)
   },
   titleBadge: {
     flexDirection: 'row',
@@ -270,6 +483,152 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: COLORS.primary,
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm, // gap-2 = 8px (웹 버전과 동일)
+    marginTop: SPACING.sm, // mt-2 = 8px
+    flexWrap: 'wrap',
+  },
+  badgeItem: {
+    width: 32, // w-8 = 32px (웹 버전과 동일)
+    height: 32,
+    borderRadius: 16, // rounded-full
+    backgroundColor: COLORS.borderLight, // bg-gray-100
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border, // border-gray-200
+  },
+  badgeItemRepresentative: {
+    width: 48, // w-12 = 48px (웹 버전과 동일)
+    height: 48,
+    borderRadius: 24, // rounded-full
+    backgroundColor: COLORS.primary + '33', // bg-primary/20
+    borderWidth: 2,
+    borderColor: COLORS.primary, // border-primary
+  },
+  badgeIcon: {
+    fontSize: 18, // text-lg = 18px (웹 버전과 동일)
+  },
+  badgeIconRepresentative: {
+    fontSize: 24, // text-2xl = 24px (웹 버전과 동일)
+  },
+  badgeMore: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  viewAllBadgesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    backgroundColor: COLORS.primary + '10',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+  },
+  viewAllBadgesText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSafeArea: {
+    width: '100%',
+    maxHeight: '85%',
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: COLORS.backgroundLight,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginHorizontal: SPACING.sm,
+    marginBottom: SPACING.sm,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    ...TYPOGRAPHY.h3,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: SPACING.xl,
+  },
+  allBadgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  allBadgeItem: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  allBadgeIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.borderLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  allBadgeIconContainerRepresentative: {
+    backgroundColor: COLORS.primary + '33',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  allBadgeIcon: {
+    fontSize: 32,
+  },
+  allBadgeName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+  representativeLabel: {
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+  },
+  representativeLabelText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.backgroundLight,
   },
   statsSection: {
     flexDirection: 'row',
@@ -308,6 +667,84 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+  },
+  representativeBadgeWithName: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    backgroundColor: COLORS.primary + '20',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  representativeBadgeIconWithName: {
+    fontSize: 20,
+  },
+  representativeBadgeName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+    maxWidth: 80,
+  },
+  badgeCountButton: {
+    minWidth: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.borderLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xs,
+  },
+  badgeCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  allBadgeItem: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  allBadgeIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.borderLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  allBadgeIconContainerRepresentative: {
+    backgroundColor: COLORS.primary + '33',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  allBadgeIcon: {
+    fontSize: 32,
+  },
+  allBadgeName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+  representativeLabel: {
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+  },
+  representativeLabelText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.backgroundLight,
   },
 });
 

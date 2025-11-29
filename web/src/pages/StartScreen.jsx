@@ -373,11 +373,10 @@ const StartScreen = () => {
     <div className="relative flex h-full w-full flex-col overflow-y-auto bg-background-light dark:bg-background-dark text-zinc-900 dark:text-zinc-50">
       <div className="flex flex-col items-center justify-start px-6 py-6 min-h-full pb-8">
         <div className="w-full max-w-sm text-center flex-1 flex flex-col justify-center">
+          {/* 앱 로고 영역 */}
           <div className="flex flex-col items-center justify-center mb-8">
-            <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-3">
-              환영합니다!
-            </h1>
-            <p className="text-[#1c140d] dark:text-zinc-300 text-base font-normal leading-normal">
+            <LiveJourneyLogo size={112} showText={true} />
+            <p className="mt-4 text-[#1c140d] dark:text-zinc-300 text-base font-normal leading-normal">
               가장 현명한 여행을 지금 바로 시작하세요.
             </p>
           </div>
@@ -388,7 +387,7 @@ const StartScreen = () => {
             <button 
               onClick={handleTesterLogin}
               disabled={loading}
-              className="flex cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-purple-600 hover:to-pink-600 active:from-purple-700 active:to-pink-700 transition-all shadow-lg disabled:opacity-50"
+              className="flex cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-gradient-to-r from-primary to-primary-dark text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-primary-dark hover:to-primary-dark active:scale-95 transition-all shadow-lg disabled:opacity-50"
               style={{ touchAction: 'manipulation' }}
             >
               <span className="material-symbols-outlined text-lg">bug_report</span>
@@ -463,7 +462,7 @@ const StartScreen = () => {
 
           {/* 로딩 상태 */}
           {loading && (
-            <div className="mt-4 flex items-center justify-center gap-2 text-primary dark:text-orange-400">
+            <div className="mt-4 flex items-center justify-center gap-2 text-primary dark:text-primary-soft">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
               <span className="text-sm font-medium">로그인 중...</span>
             </div>

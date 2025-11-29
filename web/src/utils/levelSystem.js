@@ -107,7 +107,7 @@ export const LEVEL_EXP = {
   100: 4376000
 };
 
-// 레벨별 타이틀
+// 레벨별 호칭
 export const LEVEL_TITLES = {
   1: '여행 입문자',
   5: '여행 애호가',
@@ -137,7 +137,6 @@ export const EXP_REWARDS = {
   '뱃지 획득 (하)': 100,
   '뱃지 획득 (중)': 300,
   '뱃지 획득 (상)': 500,
-  '24시간 타이틀': 200,
   '프로필 완성': 30,
   '연속 로그인': 15
 };
@@ -157,9 +156,9 @@ export const calculateLevel = (totalExp) => {
   return level;
 };
 
-// 현재 레벨 타이틀
+// 현재 레벨 호칭
 export const getLevelTitle = (level) => {
-  // 가장 가까운 레벨 타이틀 찾기
+  // 가장 가까운 레벨 호칭 찾기
   let title = LEVEL_TITLES[1];
   
   for (let lv = 100; lv >= 1; lv--) {
@@ -198,17 +197,43 @@ export const calculateTotalExp = () => {
   const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
   const earnedBadges = JSON.parse(localStorage.getItem('earnedBadges') || '[]');
   
+  // 현재 사용자 정보 가져오기
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const currentUserId = currentUser?.id;
+  
+  // 목업 데이터 필터링 (실제 사용자가 업로드한 게시물만)
+  const userPosts = posts.filter(post => {
+    // 목업 데이터 제외 (id가 mock-로 시작하거나 userId가 mock_user_로 시작하는 경우)
+    if (post.id && post.id.toString().startsWith('mock-')) {
+      return false;
+    }
+    if (post.userId && post.userId.toString().startsWith('mock_user_')) {
+      return false;
+    }
+    
+    // 현재 사용자의 게시물만 포함
+    if (currentUserId) {
+      const postUserId = post.userId || 
+                        (typeof post.user === 'string' ? post.user : post.user?.id) ||
+                        post.user;
+      return postUserId === currentUserId;
+    }
+    
+    // 사용자 정보가 없으면 local-로 시작하는 게시물만 포함 (실제 업로드)
+    return post.id && post.id.toString().startsWith('local-');
+  });
+  
   let totalExp = 0;
   
-  // 사진 업로드 경험치
-  totalExp += posts.length * EXP_REWARDS['사진 업로드'];
+  // 사진 업로드 경험치 (실제 사용자 게시물만)
+  totalExp += userPosts.length * EXP_REWARDS['사진 업로드'];
   
-  // 좋아요 받기 경험치
-  const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0);
+  // 좋아요 받기 경험치 (실제 사용자 게시물만)
+  const totalLikes = userPosts.reduce((sum, post) => sum + (post.likes || 0), 0);
   totalExp += totalLikes * EXP_REWARDS['좋아요 받기'];
   
-  // 댓글 받기 경험치
-  const totalComments = posts.reduce((sum, post) => sum + (post.qnaList?.length || 0), 0);
+  // 댓글 받기 경험치 (실제 사용자 게시물만)
+  const totalComments = userPosts.reduce((sum, post) => sum + (post.qnaList?.length || 0), 0);
   totalExp += totalComments * EXP_REWARDS['댓글 받기'];
   
   // 뱃지 경험치
@@ -217,8 +242,8 @@ export const calculateTotalExp = () => {
     totalExp += expReward;
   });
   
-  // 방문한 지역 경험치
-  const visitedRegions = [...new Set(posts.map(p => p.location?.split(' ')[0]).filter(Boolean))];
+  // 방문한 지역 경험치 (실제 사용자 게시물만)
+  const visitedRegions = [...new Set(userPosts.map(p => p.location?.split(' ')[0]).filter(Boolean))];
   totalExp += visitedRegions.length * EXP_REWARDS['지역 방문'];
   
   return totalExp;

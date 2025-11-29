@@ -14,6 +14,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,6 +28,8 @@ import { getCurrentTimestamp, getTimeAgo } from '../utils/timeUtils';
 import { checkAndAwardTitles } from '../utils/dailyTitleSystem';
 import { gainExp } from '../utils/levelSystem';
 import { checkNewBadges, awardBadge } from '../utils/badgeSystem';
+import { getBadgeCongratulationMessage, getBadgeDifficultyEffects } from '../utils/badgeMessages';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -56,7 +59,15 @@ const UploadScreen = () => {
   const [loadingAITags, setLoadingAITags] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [earnedBadge, setEarnedBadge] = useState(null);
+  const [showTitleModal, setShowTitleModal] = useState(false);
+  const [earnedTitle, setEarnedTitle] = useState(null);
   const reanalysisTimerRef = useRef(null);
+  
+  // 뱃지 모달 애니메이션
+  const badgeIconScale = useRef(new Animated.Value(0)).current;
+  const badgeIconRotation = useRef(new Animated.Value(0)).current;
+  const badgeGlowOpacity = useRef(new Animated.Value(0)).current;
+  const badgeSparkleOpacity = useRef(new Animated.Value(0)).current;
 
   const getCurrentLocation = useCallback(async () => {
     try {
@@ -264,19 +275,19 @@ const UploadScreen = () => {
         
         handleImageSelect(result);
       } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
           Alert.alert('권한 필요', '갤러리를 사용하려면 권한이 필요합니다.');
-          return;
-        }
-        
-        const result = await ImagePicker.launchImageLibraryAsync({
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.All,
-          allowsEditing: true,
-          quality: 0.8,
-          allowsMultipleSelection: true,
-        });
-        
+      allowsEditing: true,
+      quality: 0.8,
+      allowsMultipleSelection: true,
+    });
+
         handleImageSelect(result);
       }
     } catch (error) {
@@ -320,26 +331,172 @@ const UploadScreen = () => {
 
   const checkAndAwardBadge = useCallback(async () => {
     try {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🏆 뱃지 체크 시작');
+      
+      // 데이터 저장 확인
+      const postsJson = await AsyncStorage.getItem('uploadedPosts');
+      const posts = postsJson ? JSON.parse(postsJson) : [];
+      console.log(`📊 저장된 게시물 수: ${posts.length}개`);
+      
       const newBadges = await checkNewBadges();
+      console.log(`📋 발견된 새 뱃지: ${newBadges.length}개`);
       
       if (newBadges.length > 0) {
         const badge = newBadges[0];
+        console.log(`🎁 뱃지 획득 시도: ${badge.name} (난이도: ${badge.difficulty})`);
         const awarded = await awardBadge(badge);
         
         if (awarded) {
+          console.log(`✅ 뱃지 획득 성공: ${badge.name}`);
           setEarnedBadge(badge);
-          setShowBadgeModal(true);
           await gainExp(`뱃지 획득 (${badge.difficulty})`);
+          
+          // 애니메이션 시작
+          startBadgeAnimation(badge.difficulty);
+          
+          // 뱃지 모달 표시 (약간의 지연을 두어 애니메이션이 시작되도록)
+          setTimeout(() => {
+            setShowBadgeModal(true);
+            console.log('🎉 뱃지 모달 표시');
+          }, 300);
+          
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           return true;
+        } else {
+          console.log(`⚠️ 뱃지 획득 실패: ${badge.name}`);
         }
+      } else {
+        console.log('❌ 획득 가능한 새 뱃지 없음');
       }
       
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return false;
     } catch (error) {
-      console.error('뱃지 체크 실패:', error);
+      console.error('❌ 뱃지 체크 실패:', error);
+      console.error('에러 상세:', error.stack);
       return false;
     }
-  }, []);
+  }, [startBadgeAnimation]);
+
+  // 뱃지 애니메이션 시작 함수
+  const startBadgeAnimation = useCallback((difficulty) => {
+    const effects = getBadgeDifficultyEffects(difficulty);
+    
+    // 애니메이션 값 초기화
+    badgeIconScale.setValue(0);
+    badgeIconRotation.setValue(0);
+    badgeGlowOpacity.setValue(0);
+    badgeSparkleOpacity.setValue(0);
+    
+    // 난이도별 애니메이션
+    if (difficulty === '상') {
+      // 화려한 효과: 스케일 + 회전 + 글로우 + 반짝임
+      Animated.parallel([
+        Animated.sequence([
+          Animated.spring(badgeIconScale, {
+            toValue: effects.iconScale,
+            friction: 3,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.timing(badgeIconScale, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(badgeIconRotation, {
+            toValue: 1,
+            duration: effects.animationDuration,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(badgeGlowOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(badgeGlowOpacity, {
+                toValue: 0.5,
+                duration: 1000,
+                useNativeDriver: true,
+              }),
+              Animated.timing(badgeGlowOpacity, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]),
+        Animated.sequence([
+          Animated.timing(badgeSparkleOpacity, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(badgeSparkleOpacity, {
+                toValue: 0.3,
+                duration: 800,
+                useNativeDriver: true,
+              }),
+              Animated.timing(badgeSparkleOpacity, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]),
+      ]).start();
+    } else if (difficulty === '중') {
+      // 중간 효과: 스케일 + 글로우
+      Animated.parallel([
+        Animated.spring(badgeIconScale, {
+          toValue: effects.iconScale,
+          friction: 4,
+          tension: 30,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.timing(badgeGlowOpacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(badgeGlowOpacity, {
+                toValue: 0.6,
+                duration: 1200,
+                useNativeDriver: true,
+              }),
+              Animated.timing(badgeGlowOpacity, {
+                toValue: 1,
+                duration: 1200,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]),
+      ]).start();
+    } else {
+      // 간단한 효과: 스케일만
+      Animated.spring(badgeIconScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 20,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [badgeIconScale, badgeIconRotation, badgeGlowOpacity, badgeSparkleOpacity]);
 
   const handleSubmit = useCallback(async () => {
     if (formData.images.length === 0 && formData.videos.length === 0) {
@@ -364,11 +521,23 @@ const UploadScreen = () => {
       
       const userJson = await AsyncStorage.getItem('user');
       const savedUser = userJson ? JSON.parse(userJson) : {};
-      const username = user?.username || savedUser.username || '모사모';
+      const currentUser = user || savedUser;
+      const username = currentUser?.username || currentUser?.email?.split('@')[0] || '모사모';
+      const currentUserId = currentUser?.id || savedUser?.id || 'test_user_001';
+      
+      console.log('📸 게시물 저장 정보:', {
+        userId: currentUserId,
+        username: username,
+        images: formData.images.length,
+        location: formData.location
+      });
+      
+      // 지역 정보 추출 (첫 번째 단어를 지역으로 사용)
+      const region = formData.location?.split(' ')[0] || '기타';
       
       const uploadedPost = {
         id: `local-${Date.now()}`,
-        userId: user?.id || savedUser.id || 'test_user_001',
+        userId: currentUserId,
         images: formData.images,
         videos: formData.videos,
         location: formData.location,
@@ -386,37 +555,64 @@ const UploadScreen = () => {
         aiLabels: aiLabels,
         coordinates: formData.coordinates,
         detailedLocation: formData.location,
-        placeName: formData.location
+        placeName: formData.location,
+        region: region // 지역 정보 추가
       };
       
       const existingPostsJson = await AsyncStorage.getItem('uploadedPosts');
       const existingPosts = existingPostsJson ? JSON.parse(existingPostsJson) : [];
-      await AsyncStorage.setItem('uploadedPosts', JSON.stringify([uploadedPost, ...existingPosts]));
+      const updatedPosts = [uploadedPost, ...existingPosts];
+      await AsyncStorage.setItem('uploadedPosts', JSON.stringify(updatedPosts));
+      
+      console.log('✅ 게시물 저장 완료:', {
+        저장된게시물수: updatedPosts.length,
+        새게시물ID: uploadedPost.id,
+        새게시물userId: uploadedPost.userId
+      });
       
       setUploadProgress(100);
       setShowSuccessModal(true);
       
+      // 데이터 저장 완료 대기 후 뱃지 체크
       setTimeout(async () => {
+        // 사진 업로드 시 레벨 상승 (실제 업로드만)
         const expResult = await gainExp('사진 업로드');
         if (expResult.levelUp) {
           console.log(`Level up! Lv.${expResult.newLevel}`);
         }
         
-        const earnedTitle = await checkAndAwardTitles(user?.id || savedUser.id || 'test_user_001');
-        if (earnedTitle) {
-          console.log(`24-hour title earned: ${earnedTitle.name}`);
-          await gainExp('24시간 타이틀');
-        }
-        
+        // 뱃지 체크 (타이틀보다 먼저 체크)
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🏆 뱃지 체크 시작');
         const earnedBadgeResult = await checkAndAwardBadge();
+        console.log('뱃지 체크 완료 - 진행률 업데이트됨');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        if (!earnedBadgeResult) {
-          setTimeout(() => {
-            setShowSuccessModal(false);
-            navigation.navigate('MainTab');
-          }, 2000);
+        // 뱃지를 획득했으면 성공 모달 닫고 뱃지 모달 표시
+        if (earnedBadgeResult) {
+          console.log('✅ 뱃지 획득! 성공 모달 닫고 뱃지 모달 표시');
+          setShowSuccessModal(false);
+          // 뱃지 모달은 checkAndAwardBadge에서 이미 표시됨
+          return;
         }
-      }, 500);
+        
+        // 타이틀 체크 (뱃지가 없을 때만)
+        const earnedTitleResult = await checkAndAwardTitles(user?.id || savedUser.id || 'test_user_001');
+        if (earnedTitleResult) {
+          console.log(`24-hour title earned: ${earnedTitleResult.name}`);
+          setEarnedTitle(earnedTitleResult);
+          setShowSuccessModal(false); // 성공 모달 닫기
+          setShowTitleModal(true);
+          await gainExp('24시간 타이틀');
+          return;
+        }
+        
+        // 뱃지도 타이틀도 없으면 성공 모달만 표시 후 메인으로 이동
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          navigation.navigate('MainTab');
+        }, 2000);
+      }, 1000); // 500ms -> 1000ms로 증가하여 데이터 저장 완료 대기
     } catch (error) {
       console.error('Upload failed:', error);
       Alert.alert('오류', '업로드에 실패했습니다. 다시 시도해주세요');
@@ -427,25 +623,29 @@ const UploadScreen = () => {
   }, [formData, user, navigation, checkAndAwardBadge]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenLayout>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        {/* 헤더 */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="close" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>업로드: 여행 기록</Text>
-          <View style={styles.headerPlaceholder} />
-        </View>
+        <ScreenContent>
+          {/* 헤더 - 웹과 동일한 구조 */}
+          <ScreenHeader>
+            <View style={styles.headerContent}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>업로드: 여행 기록</Text>
+              <View style={styles.headerPlaceholder} />
+            </View>
+          </ScreenHeader>
 
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
+          {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+          <ScreenBody>
+        <View style={styles.content}>
             {/* 사진 추가 */}
             <View style={styles.section}>
               {formData.images.length === 0 && formData.videos.length === 0 ? (
@@ -458,47 +658,84 @@ const UploadScreen = () => {
                   <Text style={styles.addPhotoText}>사진 추가</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={styles.photoGrid}>
-                  {formData.images.map((image, index) => (
-                    <View key={index} style={styles.photoItem}>
-                      <Image source={{ uri: image }} style={styles.photoImage} resizeMode="cover" />
-                      <TouchableOpacity
-                        style={styles.removePhotoButton}
-                        onPress={() => setFormData(prev => ({
-                          ...prev,
-                          images: prev.images.filter((_, i) => i !== index),
-                          imageFiles: prev.imageFiles.filter((_, i) => i !== index)
-                        }))}
-                      >
-                        <Ionicons name="close-circle" size={24} color={COLORS.backgroundLight} />
-                      </TouchableOpacity>
+                <View style={styles.photoContainer}>
+                  {/* 첫 번째 사진을 크게 강조 */}
+                  <View style={styles.mainPhotoContainer}>
+                    <Image 
+                      source={{ uri: formData.images[0] || formData.videos[0] }} 
+                      style={styles.mainPhoto} 
+                      resizeMode="cover" 
+                    />
+                    <TouchableOpacity
+                      style={styles.removeMainPhotoButton}
+                      onPress={() => setFormData(prev => ({
+                        ...prev,
+                        images: prev.images.filter((_, i) => i !== 0),
+                        imageFiles: prev.imageFiles.filter((_, i) => i !== 0)
+                      }))}
+                    >
+                      <Ionicons name="close" size={18} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* 나머지 사진들 (2개 이상일 때만 표시) */}
+                  {(formData.images.length > 1 || formData.videos.length > 0) && (
+                    <View style={styles.photoGrid}>
+                      {formData.images.slice(1).map((image, index) => (
+                        <View key={index + 1} style={styles.photoItem}>
+                          <Image source={{ uri: image }} style={styles.photoImage} resizeMode="cover" />
+                          <TouchableOpacity
+                            style={styles.removePhotoButton}
+                            onPress={() => setFormData(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index + 1),
+                              imageFiles: prev.imageFiles.filter((_, i) => i !== index + 1)
+                            }))}
+                          >
+                            <Ionicons name="close" size={14} color="white" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {formData.videos.map((video, index) => (
+                        <View key={`video-${index}`} style={styles.photoItem}>
+                          <View style={styles.videoPlaceholder}>
+                            <Ionicons name="videocam" size={24} color={COLORS.textSubtle} />
+                          </View>
+                          <TouchableOpacity
+                            style={styles.removePhotoButton}
+                            onPress={() => setFormData(prev => ({
+                              ...prev,
+                              videos: prev.videos.filter((_, i) => i !== index),
+                              videoFiles: prev.videoFiles.filter((_, i) => i !== index)
+                            }))}
+                          >
+                            <Ionicons name="close" size={14} color="white" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {(formData.images.length + formData.videos.length) < 10 && (
+                        <TouchableOpacity
+                          style={styles.addMoreButton}
+                          onPress={() => setShowPhotoOptions(true)}
+                          activeOpacity={0.9}
+                        >
+                          <Ionicons name="add" size={24} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                  ))}
-                  {formData.videos.map((video, index) => (
-                    <View key={`video-${index}`} style={styles.photoItem}>
-                      <View style={styles.videoPlaceholder}>
-                        <Ionicons name="videocam" size={32} color={COLORS.textSubtle} />
-                        <Text style={styles.videoText}>동영상</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.removePhotoButton}
-                        onPress={() => setFormData(prev => ({
-                          ...prev,
-                          videos: prev.videos.filter((_, i) => i !== index),
-                          videoFiles: prev.videoFiles.filter((_, i) => i !== index)
-                        }))}
-                      >
-                        <Ionicons name="close-circle" size={24} color={COLORS.backgroundLight} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <TouchableOpacity
-                    style={styles.addMoreButton}
-                    onPress={() => setShowPhotoOptions(true)}
-                    activeOpacity={0.9}
-                  >
-                    <Ionicons name="add" size={32} color={COLORS.primary} />
-                  </TouchableOpacity>
+                  )}
+                  
+                  {/* 사진이 1개일 때 추가 버튼 */}
+                  {formData.images.length === 1 && formData.videos.length === 0 && (
+                    <TouchableOpacity
+                      style={styles.addMoreButtonLarge}
+                      onPress={() => setShowPhotoOptions(true)}
+                      activeOpacity={0.9}
+                    >
+                      <Ionicons name="add" size={32} color={COLORS.primary} />
+                      <Text style={styles.addMoreButtonText}>사진 추가</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -646,7 +883,7 @@ const UploadScreen = () => {
               />
             </View>
           </View>
-        </ScrollView>
+        </ScreenBody>
 
         {/* 업로드 버튼 */}
         <View style={styles.footer}>
@@ -741,29 +978,80 @@ const UploadScreen = () => {
           <View style={styles.badgeModalOverlay}>
             <View style={styles.badgeModalContent}>
               <View style={styles.badgeIconContainer}>
-                <Text style={styles.badgeIcon}>{earnedBadge?.icon || '🏆'}</Text>
-                <View style={styles.badgeNewBadge}>
-                  <Text style={styles.badgeNewText}>NEW!</Text>
-                </View>
+                {earnedBadge && (() => {
+                  const effects = getBadgeDifficultyEffects(earnedBadge.difficulty);
+                  const rotation = badgeIconRotation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '360deg'],
+                  });
+                  
+                  return (
+                    <>
+                      {/* 글로우 효과 (중, 상 난이도) */}
+                      {earnedBadge.difficulty !== '하' && (
+                        <Animated.View
+                          style={[
+                            styles.badgeGlow,
+                            {
+                              opacity: badgeGlowOpacity,
+                              backgroundColor: effects.glowColor,
+                              transform: [{ scale: badgeIconScale }],
+                            },
+                          ]}
+                        />
+                      )}
+                      {/* 아이콘 */}
+                      <Animated.View
+                        style={{
+                          transform: [
+                            { scale: badgeIconScale },
+                            { rotate: earnedBadge.difficulty === '상' ? rotation : '0deg' },
+                          ],
+                        }}
+                      >
+                        <Text style={styles.badgeIcon}>{earnedBadge.icon || '🏆'}</Text>
+                      </Animated.View>
+                      {/* 반짝임 효과 (상 난이도만) */}
+                      {earnedBadge.difficulty === '상' && (
+                        <Animated.View
+                          style={[
+                            styles.badgeSparkle,
+                            { opacity: badgeSparkleOpacity },
+                          ]}
+                        >
+                          <Text style={styles.badgeSparkleText}>✨</Text>
+                        </Animated.View>
+                      )}
+                      <View style={styles.badgeNewBadge}>
+                        <Text style={styles.badgeNewText}>NEW!</Text>
+                      </View>
+                    </>
+                  );
+                })()}
               </View>
-              <Text style={styles.badgeTitle}>축하합니다!</Text>
-              <Text style={styles.badgeName}>{earnedBadge?.name || '뱃지'}</Text>
-              <View style={styles.badgeDifficultyContainer}>
-                <View style={[
-                  styles.badgeDifficultyBadge,
-                  earnedBadge?.difficulty === '상' && styles.badgeDifficultyHigh,
-                  earnedBadge?.difficulty === '중' && styles.badgeDifficultyMedium,
-                  earnedBadge?.difficulty === '하' && styles.badgeDifficultyLow
-                ]}>
-                  <Text style={styles.badgeDifficultyText}>
-                    난이도: {earnedBadge?.difficulty || '하'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.badgeMessage}>뱃지를 획득했습니다!</Text>
-              <Text style={styles.badgeDescription}>
-                {earnedBadge?.description || '여행 기록을 계속 쌓아가며 더 많은 뱃지를 획득해보세요!'}
-              </Text>
+              {earnedBadge && (() => {
+                const message = getBadgeCongratulationMessage(earnedBadge.name);
+                return (
+                  <>
+                    <Text style={styles.badgeTitle}>{message.title}</Text>
+                    <Text style={styles.badgeName}>{earnedBadge.name}</Text>
+                    <View style={styles.badgeDifficultyContainer}>
+                      <View style={[
+                        styles.badgeDifficultyBadge,
+                        earnedBadge.difficulty === '상' && styles.badgeDifficultyHigh,
+                        earnedBadge.difficulty === '중' && styles.badgeDifficultyMedium,
+                        earnedBadge.difficulty === '하' && styles.badgeDifficultyLow
+                      ]}>
+                        <Text style={styles.badgeDifficultyText}>
+                          난이도: {earnedBadge.difficulty || '하'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.badgeSubtitle}>{message.subtitle}</Text>
+                    <Text style={styles.badgeMessage}>{message.message}</Text>
+                  </>
+                );
+              })()}
               <View style={styles.badgeButtons}>
                 <TouchableOpacity
                   style={styles.badgeButtonPrimary}
@@ -789,8 +1077,59 @@ const UploadScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* 타이틀 획득 축하 모달 */}
+        <Modal
+          visible={showTitleModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowTitleModal(false);
+            setShowSuccessModal(false);
+            navigation.navigate('MainTab');
+          }}
+        >
+          <View style={styles.titleModalOverlay}>
+            <View style={styles.titleModalContent}>
+              <View style={styles.titleIconContainer}>
+                <View style={styles.titleIconCircle}>
+                  <Text style={styles.titleIcon}>{earnedTitle?.icon || '👑'}</Text>
+                </View>
+                <View style={styles.titleNewBadge}>
+                  <Text style={styles.titleNewText}>VIP</Text>
+                </View>
+              </View>
+              <Text style={styles.titleModalTitle}>축하합니다!</Text>
+              <Text style={styles.titleModalName}>{earnedTitle?.name || '타이틀'}</Text>
+              <View style={styles.titleCategoryContainer}>
+                <View style={styles.titleCategoryBadge}>
+                  <Text style={styles.titleCategoryText}>
+                    {earnedTitle?.category || '24시간 타이틀'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.titleModalMessage}>24시간 타이틀을 획득했습니다!</Text>
+              <Text style={styles.titleModalDescription}>
+                {earnedTitle?.description || '오늘 하루 동안 이 타이틀을 유지할 수 있습니다!'}
+              </Text>
+              <View style={styles.titleButtons}>
+                <TouchableOpacity
+                  style={styles.titleButtonPrimary}
+                  onPress={() => {
+                    setShowTitleModal(false);
+                    setShowSuccessModal(false);
+                    navigation.navigate('MainTab');
+                  }}
+                >
+                  <Text style={styles.titleButtonPrimaryText}>확인</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        </ScreenContent>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 };
 
@@ -802,66 +1141,111 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 64, // h-16 = 64px
+    paddingHorizontal: SPACING.md, // px-4
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.backgroundLight,
+    height: 64, // h-16 = 64px
+    paddingHorizontal: SPACING.md, // px-4
+    backgroundColor: COLORS.backgroundLight, // bg-white
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.borderLight + '80', // border-subtle-light/50
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    zIndex: 20,
   },
   closeButton: {
-    width: 40,
+    width: 40, // size-10 = 40px
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 20, // rounded-full
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
+    fontSize: 18, // text-lg
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-light
+    flex: 1,
+    textAlign: 'center',
   },
   headerPlaceholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
+    width: 40, // w-10 = 40px
   },
   content: {
-    padding: SPACING.md,
-    gap: SPACING.lg,
+    padding: SPACING.md, // p-4 = 16px
+    gap: SPACING.lg, // space-y-6 = 24px
   },
   section: {
     marginBottom: SPACING.lg,
   },
   addPhotoButton: {
-    height: 200,
+    paddingHorizontal: SPACING.lg, // px-6 = 24px
+    paddingVertical: 80, // py-20 = 80px
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.border, // border-subtle-light
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: 12, // rounded-lg
     justifyContent: 'center',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.md, // gap-4 = 16px
   },
   addPhotoText: {
-    ...TYPOGRAPHY.h3,
+    fontSize: 18, // text-lg = 18px
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-light
+  },
+  photoContainer: {
+    gap: 12, // space-y-3 = 12px (웹과 동일)
+  },
+  mainPhotoContainer: {
+    width: '100%',
+    aspectRatio: 4 / 3, // aspect-[4/3] (웹과 동일)
+    borderRadius: 12, // rounded-xl (웹과 동일)
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5, // shadow-lg (웹과 동일)
+    borderWidth: 2,
+    borderColor: COLORS.primary + '33', // border-primary/20 (웹과 동일)
+  },
+  mainPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  removeMainPhotoButton: {
+    position: 'absolute',
+    top: 8, // top-2 = 8px (웹과 동일)
+    right: 8, // right-2 = 8px (웹과 동일)
+    backgroundColor: 'rgba(0,0,0,0.7)', // bg-black/70 (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
+    padding: 8, // p-2 = 8px (웹과 동일)
   },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
+    gap: 8, // gap-2 = 8px (웹과 동일)
   },
   photoItem: {
-    width: (SCREEN_WIDTH - SPACING.md * 2 - SPACING.sm * 2) / 3,
-    aspectRatio: 1,
-    borderRadius: 12,
+    width: (SCREEN_WIDTH - SPACING.md * 2 - 8 * 3) / 4, // grid-cols-4 (웹과 동일)
+    aspectRatio: 1, // aspect-square (웹과 동일)
+    borderRadius: 12, // rounded-lg (웹과 동일)
     overflow: 'hidden',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: COLORS.border, // border-subtle-light (웹과 동일)
   },
   photoImage: {
     width: '100%',
@@ -881,20 +1265,37 @@ const styles = StyleSheet.create({
   },
   removePhotoButton: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 12,
+    top: 4, // top-1 = 4px (웹과 동일)
+    right: 4, // right-1 = 4px (웹과 동일)
+    backgroundColor: 'rgba(0,0,0,0.6)', // bg-black/60 (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
+    padding: 4, // p-1 = 4px (웹과 동일)
   },
   addMoreButton: {
-    width: (SCREEN_WIDTH - SPACING.md * 2 - SPACING.sm * 2) / 3,
-    aspectRatio: 1,
+    width: (SCREEN_WIDTH - SPACING.md * 2 - 8 * 3) / 4, // grid-cols-4 (웹과 동일)
+    aspectRatio: 1, // aspect-square (웹과 동일)
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.border, // border-subtle-light (웹과 동일)
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: 12, // rounded-lg (웹과 동일)
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  addMoreButtonLarge: {
+    width: '100%',
+    aspectRatio: 4 / 3, // aspect-[4/3] (웹과 동일)
+    borderWidth: 2,
+    borderColor: COLORS.border, // border-subtle-light (웹과 동일)
+    borderStyle: 'dashed',
+    borderRadius: 12, // rounded-xl (웹과 동일)
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8, // gap-2 = 8px (웹과 동일)
+  },
+  addMoreButtonText: {
+    fontSize: 14, // text-sm = 14px (웹과 동일)
+    fontWeight: '500', // font-medium (웹과 동일)
+    color: COLORS.textSubtle, // text-text-subtle-light (웹과 동일)
   },
   labelRow: {
     flexDirection: 'row',
@@ -903,9 +1304,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   label: {
-    ...TYPOGRAPHY.body,
-    fontWeight: '500',
-    color: COLORS.text,
+    fontSize: 16, // text-base = 16px
+    fontWeight: '500', // font-medium
+    color: COLORS.text, // text-text-light
   },
   loadingText: {
     fontSize: 12,
@@ -918,20 +1319,23 @@ const styles = StyleSheet.create({
   },
   locationInput: {
     flex: 1,
-    height: 56,
+    height: 56, // h-14 = 56px
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    ...TYPOGRAPHY.body,
-    color: COLORS.text,
-    backgroundColor: COLORS.backgroundLight,
+    borderColor: COLORS.border, // border-subtle-light
+    borderRadius: 12, // rounded-lg
+    paddingHorizontal: SPACING.md, // p-4 = 16px
+    fontSize: 16, // text-base = 16px
+    fontWeight: 'normal', // font-normal
+    color: COLORS.text, // text-text-light
+    backgroundColor: COLORS.backgroundLight, // bg-background-light
   },
   locationButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary + '10',
+    width: 56, // w-14 = 56px
+    height: 56, // h-14 = 56px
+    borderRadius: 12, // rounded-lg
+    backgroundColor: COLORS.primary + '1A', // bg-primary/10
+    borderWidth: 1,
+    borderColor: COLORS.border, // border-subtle-light
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -942,27 +1346,28 @@ const styles = StyleSheet.create({
   },
   tagInput: {
     flex: 1,
-    height: 56,
+    height: 56, // h-14 = 56px
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    ...TYPOGRAPHY.body,
-    color: COLORS.text,
-    backgroundColor: COLORS.backgroundLight,
+    borderColor: COLORS.border, // border-subtle-light
+    borderRadius: 12, // rounded-lg
+    paddingHorizontal: SPACING.md, // p-4 = 16px
+    fontSize: 16, // text-base = 16px
+    fontWeight: 'normal', // font-normal
+    color: COLORS.text, // text-text-light
+    backgroundColor: COLORS.backgroundLight, // bg-background-light
   },
   addTagButton: {
-    paddingHorizontal: SPACING.md,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20, // px-5 = 20px
+    height: 56, // h-14 = 56px
+    borderRadius: 12, // rounded-lg
+    backgroundColor: COLORS.primary, // bg-primary
     justifyContent: 'center',
     alignItems: 'center',
   },
   addTagButtonText: {
-    ...TYPOGRAPHY.body,
+    fontSize: 14, // text-sm = 14px
     fontWeight: 'bold',
-    color: COLORS.backgroundLight,
+    color: COLORS.backgroundLight, // text-white
   },
   aiLoadingContainer: {
     flexDirection: 'row',
@@ -1236,10 +1641,11 @@ const styles = StyleSheet.create({
   },
   badgeModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.md,
+    zIndex: 1000, // 다른 모달보다 위에 표시
   },
   badgeModalContent: {
     width: '100%',
@@ -1250,13 +1656,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 4,
     borderColor: COLORS.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
   },
   badgeIconContainer: {
     position: 'relative',
     marginBottom: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgeIcon: {
     fontSize: 64,
+    zIndex: 2,
+  },
+  badgeGlow: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.3,
+    zIndex: 1,
+  },
+  badgeSparkle: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    zIndex: 3,
+  },
+  badgeSparkleText: {
+    fontSize: 32,
   },
   badgeNewBadge: {
     position: 'absolute',
@@ -1349,6 +1780,111 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  // 타이틀 모달 스타일
+  titleModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.md,
+  },
+  titleModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFF5F0',
+    borderRadius: 24,
+    padding: SPACING.xl,
+    borderWidth: 4,
+    borderColor: COLORS.primary,
+  },
+  titleIconContainer: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    position: 'relative',
+  },
+  titleIconCircle: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleIcon: {
+    fontSize: 64,
+  },
+  titleNewBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+  },
+  titleNewText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  titleModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  titleModalName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#B45309',
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+  },
+  titleCategoryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  titleCategoryBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: 9999,
+  },
+  titleCategoryText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  titleModalMessage: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  titleModalDescription: {
+    fontSize: 14,
+    color: COLORS.textSubtle,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+  },
+  titleButtons: {
+    gap: SPACING.sm,
+  },
+  titleButtonPrimary: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  titleButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
 });
 

@@ -13,6 +13,9 @@ const BottomNavigation = React.memo(() => {
     if (path === '/search') {
       return location.pathname.startsWith('/search') || location.pathname.startsWith('/region');
     }
+    if (path === '/upload') {
+      return location.pathname === '/upload';
+    }
     if (path === '/map') {
       return location.pathname === '/map';
     }
@@ -62,12 +65,12 @@ const BottomNavigation = React.memo(() => {
       </button>
       <button 
         onClick={() => navigate('/upload')}
-        className="flex flex-col items-center gap-1 text-text-subtle-light dark:text-text-subtle-dark"
+        className={`flex flex-col items-center gap-1 ${
+          location.pathname === '/upload' ? 'text-primary' : 'text-text-subtle-light dark:text-text-subtle-dark hover:text-primary transition-colors'
+        }`}
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors">
-          <span className="material-symbols-outlined !text-2xl">add</span>
-        </div>
-        <span className="text-xs font-bold text-text-subtle-light dark:text-text-subtle-dark">업로드</span>
+        <span className="material-symbols-outlined">add</span>
+        <span className="text-xs font-bold">업로드</span>
       </button>
       <button 
         onClick={() => navigate('/map')}

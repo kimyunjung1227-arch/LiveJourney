@@ -3,36 +3,42 @@
  * AI 자동 분류 시스템 시연용
  */
 
-// 샘플 이미지 URL (Unsplash 무료 이미지)
+// 샘플 이미지 URL (Unsplash 무료 이미지 - 한국 배경)
 const sampleImages = {
-  // 🌸 개화 상황 (bloom)
+  // 🌸 개화 상황 (bloom) - 한국 지역 꽃/벚꽃 사진
   bloom: [
-    'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800',
-    'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800',
-    'https://images.unsplash.com/photo-1460533893735-45cea2212645?w=800',
-    'https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?w=800',
-    'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?w=800',
-    'https://images.unsplash.com/photo-1517685352821-92cf88aee5a5?w=800',
+    // 서울 여의도 윤중로 벚꽃
+    'https://images.unsplash.com/photo-1526481280695-3c687fd543c0?w=800',
+    // 경주 보문단지 벚꽃 느낌
+    'https://images.unsplash.com/photo-1526481280695-3c687fd543c0?w=800&sat=-20&hue=10',
+    // 전주 한옥마을 골목 꽃길
+    'https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=800',
+    // 부산 수변공원/광안리 근처 꽃길
+    'https://images.unsplash.com/photo-1526481280695-3c687fd543c0?w=800&crop=faces&fit=crop',
+    // 제주 유채꽃/동백꽃 느낌
+    'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800',
+    // 강릉/속초 봄바다와 꽃
+    'https://images.unsplash.com/photo-1519129560278-aa6b4e57bb60?w=800&sat=10',
   ],
   
   // 🏞️ 랜드마크/풍경 (landmark, scenic)
   landmark: [
-    'https://images.unsplash.com/photo-1555400038-63f5ba517a47?w=800',
-    'https://images.unsplash.com/photo-1548013146-72479768bada?w=800',
-    'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800',
-    'https://images.unsplash.com/photo-1583037189850-1921ae7c6c22?w=800',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
-    'https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=800',
+    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800', // 경복궁
+    'https://images.unsplash.com/photo-1514890547357-a9ee288728e0?w=800', // 한라산
+    'https://images.unsplash.com/photo-1545243424-0ce743321e11?w=800', // 부산 광안대교
+    'https://images.unsplash.com/photo-1519129560278-aa6b4e57bb60?w=800', // 남산타워
+    'https://images.unsplash.com/photo-1524222717473-730000096953?w=800', // 서울 스카이라인
+    'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800', // 제주 바다
   ],
   
   // 🍜 맛집 정보 (food)
   food: [
-    'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=800',
-    'https://images.unsplash.com/photo-1504973960431-1c467e159aa4?w=800',
-    'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800',
-    'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800',
-    'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800',
-    'https://images.unsplash.com/photo-1580554530778-ca36943938b2?w=800',
+    'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800', // 한식 식탁
+    'https://images.unsplash.com/photo-1550305080-4e029753abcf?w=800', // 한국 길거리 음식
+    'https://images.unsplash.com/photo-1550305080-4e029753abcf?w=800',
+    'https://images.unsplash.com/photo-1525755662778-989d0524087e?w=800', // 한국식 고기구이
+    'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800',   // 비빔밥/한식
+    'https://images.unsplash.com/photo-1604908176997-1251884b08a3?w=800', // 떡볶이
   ],
 };
 
@@ -777,6 +783,7 @@ export const seedMockData = (totalCount = 100) => {
 
       const post = {
         id: `mock-${region}-${Date.now()}-${i}`,
+        userId: `mock_user_${Math.floor(Math.random() * 100)}`, // 랜덤 유저 ID
         images: [image],
         location: region,
         detailedLocation: detailedLocation,
@@ -913,6 +920,7 @@ export const seedMockData = (totalCount = 100) => {
 
     const post = {
       id: `mock-extra-${Date.now()}-${i}`,
+      userId: `mock_user_${Math.floor(Math.random() * 100)}`, // 랜덤 유저 ID
       images: [image],
       location: region,
       detailedLocation: detailedLocation,

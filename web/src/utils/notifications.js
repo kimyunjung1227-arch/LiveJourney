@@ -27,7 +27,7 @@ const NOTIFICATION_TYPES = {
   post: {
     icon: 'photo_camera',
     iconBg: 'bg-purple-100 dark:bg-purple-900/20',
-    iconColor: 'text-purple-500'
+    iconColor: 'text-primary'
   },
   system: {
     icon: 'notifications',
@@ -253,19 +253,6 @@ export const notifyLevelUp = (newLevel, title) => {
   });
 };
 
-// 24시간 타이틀 획득 알림
-export const notifyDailyTitle = (titleName, icon) => {
-  addNotification({
-    type: 'system',
-    title: `👑 24시간 명예 타이틀 획득!`,
-    message: `"${titleName}" 타이틀을 획득했습니다! (24시간 유지)`,
-    icon: 'emoji_events',
-    iconBg: 'bg-yellow-100 dark:bg-yellow-900/20',
-    iconColor: 'text-yellow-600',
-    link: '/profile'
-  });
-};
-
 export default {
   getNotifications,
   addNotification,
@@ -279,6 +266,5 @@ export default {
   notifyComment,
   notifyFollow,
   notifySystem,
-  notifyLevelUp,
-  notifyDailyTitle
+  notifyLevelUp
 };

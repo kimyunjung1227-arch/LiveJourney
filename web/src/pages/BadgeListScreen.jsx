@@ -10,12 +10,65 @@ const BadgeListScreen = () => {
   const [badges, setBadges] = useState([]);
   const [earnedBadges, setEarnedBadges] = useState([]);
 
-  // 뱃지 데이터 로드
-  useEffect(() => {
+  // 뱃지 데이터 로드 및 업데이트
+  const loadBadges = () => {
+    console.log('🔄 뱃지 목록 로드 시작');
     const allBadges = getAvailableBadges();
     const earned = getEarnedBadges();
+    
+    console.log('📋 로드된 뱃지:', {
+      전체: allBadges.length,
+      획득: earned.length,
+      진행률있는뱃지: allBadges.filter(b => b.progress > 0 && !b.isEarned).length
+    });
+    
     setBadges(allBadges);
     setEarnedBadges(earned);
+  };
+
+  useEffect(() => {
+    loadBadges();
+
+    // 게시물 업데이트 이벤트 리스너 (사진 업로드 시 뱃지 진행률 업데이트)
+    const handlePostsUpdate = () => {
+      console.log('📊 게시물 업데이트 감지 - 뱃지 진행률 갱신');
+      loadBadges();
+    };
+
+    // 뱃지 진행률 업데이트 이벤트 리스너
+    const handleBadgeProgressUpdate = () => {
+      console.log('🏆 뱃지 진행률 업데이트 감지');
+      loadBadges();
+    };
+
+    // 뱃지 획득 이벤트 리스너
+    const handleBadgeEarned = () => {
+      console.log('🎉 뱃지 획득 감지');
+      loadBadges();
+    };
+
+    // 화면 포커스 시 뱃지 목록 새로고침
+    const handleFocus = () => {
+      console.log('👁️ 화면 포커스 - 뱃지 목록 새로고침');
+      loadBadges();
+    };
+
+    window.addEventListener('postsUpdated', handlePostsUpdate);
+    window.addEventListener('badgeProgressUpdated', handleBadgeProgressUpdate);
+    window.addEventListener('badgeEarned', handleBadgeEarned);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        handleFocus();
+      }
+    });
+
+    return () => {
+      window.removeEventListener('postsUpdated', handlePostsUpdate);
+      window.removeEventListener('badgeProgressUpdated', handleBadgeProgressUpdate);
+      window.removeEventListener('badgeEarned', handleBadgeEarned);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   // 필터링된 뱃지 목록
@@ -78,7 +131,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 50 },
       icon: 'emoji_events',
-      color: 'from-purple-400 to-pink-500'
+      color: 'from-primary to-accent'
     },
     {
       id: 6,
@@ -133,7 +186,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 10 },
       icon: 'landscape',
-      color: 'from-orange-400 to-green-500'
+      color: 'from-primary to-emerald-400'
     },
     {
       id: 11,
@@ -155,7 +208,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 10 },
       icon: 'temple_buddhist',
-      color: 'from-orange-400 to-red-500'
+      color: 'from-primary to-rose-500'
     },
     {
       id: 13,
@@ -166,7 +219,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 20 },
       icon: 'restaurant',
-      color: 'from-orange-400 to-red-500'
+      color: 'from-primary to-rose-500'
     },
     {
       id: 14,
@@ -210,7 +263,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 10 },
       icon: 'nightlight',
-      color: 'from-indigo-400 to-purple-500'
+      color: 'from-sky-500 to-primary'
     },
     {
       id: 18,
@@ -254,7 +307,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 100 },
       icon: 'favorite',
-      color: 'from-rose-400 to-red-500'
+      color: 'from-accent to-rose-500'
     },
     {
       id: 22,
@@ -276,7 +329,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 10 },
       icon: 'museum',
-      color: 'from-purple-400 to-indigo-500'
+      color: 'from-primary to-sky-500'
     },
     {
       id: 24,
@@ -331,7 +384,7 @@ const BadgeListScreen = () => {
       acquired: false,
       progress: { current: 0, total: 15 },
       icon: 'shopping_bag',
-      color: 'from-violet-400 to-purple-500'
+      color: 'from-primary to-indigo-500'
     },
     {
       id: 29,
@@ -371,13 +424,13 @@ const BadgeListScreen = () => {
     <div className="screen-layout bg-white dark:bg-background-dark">
       <div className="screen-content">
         {/* 헤더 */}
-        <header className="screen-header bg-white dark:bg-gray-900 flex items-center p-4 pb-2 justify-between shadow-sm">
+        <header className="screen-header bg-white dark:bg-gray-900 flex items-center p-4 justify-between shadow-sm">
           <button 
             onClick={() => navigate('/profile')}
             aria-label="Back" 
-            className="text-text-primary-light dark:text-text-primary-dark flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex size-12 shrink-0 items-center justify-center text-text-primary-light dark:text-text-primary-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
           <h1 className="text-text-primary-light dark:text-text-primary-dark text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">
             뱃지 목록
@@ -450,7 +503,7 @@ const BadgeListScreen = () => {
                   {badge.isEarned ? (
                     <div className="flex items-center justify-center gap-1.5 mt-1">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        badge.difficulty === '상' ? 'bg-purple-500 text-white' :
+                        badge.difficulty === '상' ? 'bg-primary-dark text-white' :
                         badge.difficulty === '중' ? 'bg-blue-500 text-white' :
                         'bg-green-500 text-white'
                       }`}>
@@ -521,7 +574,7 @@ const BadgeListScreen = () => {
               {/* 난이도 */}
               <div className="flex items-center justify-center gap-2 mt-3">
                 <span className={`text-sm font-bold px-3 py-1 rounded-full ${
-                  selectedBadge.difficulty === '상' ? 'bg-purple-500 text-white' :
+                  selectedBadge.difficulty === '상' ? 'bg-primary-dark text-white' :
                   selectedBadge.difficulty === '중' ? 'bg-blue-500 text-white' :
                   'bg-green-500 text-white'
                 }`}>
@@ -575,4 +628,3 @@ const BadgeListScreen = () => {
 };
 
 export default BadgeListScreen;
-

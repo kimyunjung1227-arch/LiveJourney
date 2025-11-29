@@ -5,7 +5,6 @@ import { seedMockData } from '../utils/mockUploadData';
 import { getPosts } from '../api/posts';
 import { getUnreadCount } from '../utils/notifications';
 import { getTimeAgo, updatePostTimes, filterRecentPosts } from '../utils/timeUtils';
-import { getUserDailyTitle, getTitleEffect } from '../utils/dailyTitleSystem';
 
 const MainScreen = () => {
   const navigate = useNavigate();
@@ -19,7 +18,6 @@ const MainScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-
   const realtimeScrollRef = useRef(null);
   const crowdedScrollRef = useRef(null);
   const recommendedScrollRef = useRef(null);
@@ -85,21 +83,32 @@ const MainScreen = () => {
   }, [getTimeAgo]);
 
   const loadMockData = useCallback(() => {
-    let posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    // localStorage에서 모든 게시물 가져오기 (기록은 유지)
+    const allPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+    console.log(`📸 전체 게시물 (기록): ${allPosts.length}개`);
     
-    // 2일 이상 된 게시물 필터링 ⭐
-    posts = filterRecentPosts(posts, 2);
-    console.log(`📊 전체 게시물 → 2일 이내 게시물: ${posts.length}개`);
+    // 2일 이내 게시물만 필터링 (메인 화면 노출용)
+    // 2일 이상 된 게시물은 localStorage에 저장되어 있지만 화면에는 표시 안 함
+    let posts = filterRecentPosts(allPosts, 2);
+    console.log(`📊 메인화면 노출 게시물 (2일 이내): ${posts.length}개`);
+
+    // 최신순 정렬
+    posts.sort((a, b) => {
+      const timeA = new Date(a.timestamp || a.createdAt || 0).getTime();
+      const timeB = new Date(b.timestamp || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
     
-    // Mock 데이터 생성 비활성화 - 프로덕션 모드
+    // 2일 이내 게시물이 없으면 빈 배열 설정
     if (posts.length === 0) {
-      console.log('📭 최근 2일 이내 업로드된 사진이 없습니다');
+      console.log('📭 최근 2일 이내 업로드된 사진이 없습니다 (기록은 유지됨)');
       setRealtimeData([]);
       setCrowdedData([]);
       setRecommendedData([]);
       return;
     }
     
+    // 2일 이내 게시물만 표시 (최대 30개)
     const realtimeFormatted = posts.slice(0, 30).map((post) => {
       // timestamp 기반으로 동적 시간 계산 ⭐
       const dynamicTime = getTimeAgo(post.timestamp || post.createdAt || post.time);
@@ -133,7 +142,7 @@ const MainScreen = () => {
       };
     });
     
-    // 1시간 이내 게시물만 필터링 (동적)
+    // 1시간 이내 게시물만 필터링 (인기 섹션)
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
     const crowdedFormatted = posts
       .filter(post => {
@@ -172,6 +181,7 @@ const MainScreen = () => {
         };
       });
     
+    // 2일 이내 게시물만 표시 (최대 200개)
     const recommendedFormatted = posts.slice(0, 200).map((post, idx) => {
       const dynamicTime = getTimeAgo(post.timestamp || post.createdAt || post.time);
       
@@ -223,7 +233,7 @@ const MainScreen = () => {
       crowded: crowdedFormatted.length,
       recommended: recommendedFormatted.length
     });
-  }, []);
+  }, [getTimeAgo]);
 
   const loadUploadedPosts = useCallback(() => {
     const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
@@ -274,7 +284,44 @@ const MainScreen = () => {
             likesCount: post.likesCount || 0,
             comments: post.comments || []
           }));
-          setRealtimeData(formattedRealtime);
+
+          // ✅ 로컬에 저장된 업로드 게시물과 병합 (내가 방금 올린 사진도 항상 보이도록)
+          try {
+            const localAllPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+            // 최근 2일 이내 게시물만 메인에 노출
+            const localRecentPosts = filterRecentPosts(localAllPosts, 2);
+
+            const localFormattedRealtime = localRecentPosts.map(post => {
+              const dynamicTime = getTimeAgo(post.timestamp || post.createdAt || post.time);
+              return {
+                id: post.id,
+                images: post.images || [],
+                image: post.images?.[0],
+                title: post.location,
+                location: post.location,
+                time: dynamicTime,
+                user: post.user || '여행자',
+                badge: post.categoryName || '여행러버',
+                qnaList: [],
+                content: post.note || `${post.location}의 아름다운 순간!`,
+                likesCount: post.likes || 0,
+                comments: post.comments || []
+              };
+            });
+
+            // 중복 제거 (id 기준)
+            const mergedRealtime = [
+              ...localFormattedRealtime,
+              ...formattedRealtime.filter(
+                p => !localRecentPosts.some(lp => lp.id === p.id)
+              )
+            ];
+
+            setRealtimeData(mergedRealtime);
+          } catch (mergeError) {
+            console.warn('로컬 업로드 게시물 병합 중 오류, 백엔드 데이터만 사용:', mergeError);
+            setRealtimeData(formattedRealtime);
+          }
           
           const allPostsResponse = await getPosts({ isRealtime: false, limit: 20 });
           if (allPostsResponse.success && allPostsResponse.posts && allPostsResponse.posts.length > 0) {
@@ -407,8 +454,8 @@ const MainScreen = () => {
   // 메인화면 진입 시 한 번 업데이트 후 자동 새로고침
   useEffect(() => {
     console.log('📱 메인화면 진입 - 초기 데이터 로드');
-    
-    // Mock 데이터 즉시 로드 (사진 바로 표시!)
+
+    // Mock 데이터 + 업로드 데이터 즉시 로드 (사진 바로 표시!)
     loadMockData();
     loadUploadedPosts();
     updateNotificationCount();
@@ -420,15 +467,20 @@ const MainScreen = () => {
       fetchPosts();
     }, 100);
     
-    const handleNotificationChange = () => {
+      const handleNotificationChange = () => {
       updateNotificationCount();
     };
     
-    // newPostsAdded 이벤트 리스너 (Mock 데이터 생성 시)
-    const handleNewPosts = () => {
-      console.log('🔄 새 게시물 추가됨 - 화면 업데이트!');
-      loadMockData();
-      loadUploadedPosts();
+    // newPostsAdded 이벤트 리스너 (사진 업로드 시)
+      const handleNewPosts = () => {
+      console.log('🔄 메인 화면 - 새 게시물 추가됨!');
+      // 약간의 지연을 두고 업데이트 (localStorage 저장 완료 대기)
+      setTimeout(() => {
+        console.log('📸 메인 화면 - 데이터 새로고침 시작');
+        loadMockData();
+        loadUploadedPosts();
+        console.log('✅ 메인 화면 - 데이터 새로고침 완료');
+      }, 200); // 100ms -> 200ms로 증가
     };
     
     // 알림 개수 업데이트
@@ -457,18 +509,20 @@ const MainScreen = () => {
         <div className="screen-header bg-white dark:bg-gray-900 border-b border-border-light/50 dark:border-border-dark/50 shadow-sm relative z-50">
         <div className="flex items-center px-4 py-3 justify-between">
           <h2 className="text-xl font-bold leading-tight tracking-[-0.015em]">LiveJourney</h2>
-          <button 
-            onClick={() => navigate('/notifications')}
-            className="relative flex items-center justify-center w-11 h-11 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-          >
-            <span className="material-symbols-outlined text-text-light dark:text-text-dark" style={{ fontSize: '26px' }}>notifications</span>
-            {unreadNotificationCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
-            </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => navigate('/notifications')}
+              className="relative flex items-center justify-center w-11 h-11 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+            >
+              <span className="material-symbols-outlined text-text-light dark:text-text-dark" style={{ fontSize: '26px' }}>notifications</span>
+              {unreadNotificationCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+              </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* 검색창 */}
@@ -506,7 +560,7 @@ const MainScreen = () => {
         <section className="pt-5">
           <div className="flex items-center justify-between px-4 pb-3">
             <h2 className="text-text-light dark:text-text-dark text-[22px] font-bold leading-tight tracking-[-0.015em]">
-              실시간 정보
+              지금 여기는!
             </h2>
             <button 
               onClick={() => navigate('/detail?filter=realtime')}
@@ -522,10 +576,10 @@ const MainScreen = () => {
                 travel_explore
               </span>
               <p className="text-gray-500 dark:text-gray-400 text-center text-base font-medium mb-2">
-                아직 공유된 여행 정보가 없어요
+                아직 지금 이곳의 모습이 올라오지 않았어요
               </p>
               <p className="text-gray-400 dark:text-gray-500 text-center text-sm mb-4">
-                첫 번째로 여행 정보를 공유해보세요!
+                지금 보고 있는 장소와 분위기, 날씨가 보이도록 한 장만 남겨 주세요
               </p>
               <button
                 onClick={() => navigate('/upload')}
@@ -552,10 +606,6 @@ const MainScreen = () => {
             >
               <div className="flex items-stretch px-4 gap-3 pb-2">
                 {realtimeData.map((item) => {
-                  // 24시간 타이틀 확인
-                  const userTitle = getUserDailyTitle(item.userId);
-                  const titleEffect = userTitle ? getTitleEffect(userTitle.effect) : null;
-                  
                   return (
                     <div 
                       key={item.id} 
@@ -564,9 +614,7 @@ const MainScreen = () => {
                       onClick={() => handleItemClickWithDragCheck(item, 'realtime')}
                     >
                       <div 
-                        className={`relative w-full aspect-[1/1.2] rounded-lg overflow-hidden hover:opacity-90 transition-opacity ${
-                          titleEffect ? `${titleEffect.border} ${titleEffect.shadow} ${titleEffect.glow}` : 'shadow-md'
-                        }`}
+                        className="relative w-full aspect-[1/1.2] rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md border border-border-light"
                       >
                         {/* 동영상이 있으면 동영상 표시, 없으면 이미지 */}
                         {item.videos && item.videos.length > 0 ? (
@@ -581,62 +629,19 @@ const MainScreen = () => {
                             onMouseLeave={(e) => e.target.pause()}
                           />
                         ) : (
-                          <div 
-                            className="w-full h-full bg-center bg-no-repeat bg-cover"
-                            style={{ backgroundImage: `url("${item.image}")` }}
+                          <img
+                            src={item.image || 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80'}
+                            alt={item.location || '여행 사진'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80';
+                            }}
                           />
                         )}
                         {/* 그라데이션 오버레이 */}
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3))' }}></div>
-                        
-                        {/* 우측상단: 24시간 타이틀 배지 */}
-                        {userTitle && (
-                          <div style={{ 
-                            position: 'absolute', 
-                            top: '8px', 
-                            right: '8px', 
-                            zIndex: 30,
-                            background: `linear-gradient(135deg, #fbbf24, #f97316)`,
-                            padding: '4px 8px',
-                            borderRadius: '9999px',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            <span style={{ fontSize: '12px' }}>{userTitle.icon}</span>
-                            <span style={{ 
-                              fontSize: '10px', 
-                              fontWeight: 'bold', 
-                              color: 'white',
-                              textShadow: '0 1px 2px rgba(0,0,0,0.5)'
-                            }}>
-                              {titleEffect?.badge || '👑'}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* 좌측상단: 카테고리 아이콘 */}
-                        {item.categoryName && (
-                          <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-                            <span style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              width: '40px', 
-                              height: '40px', 
-                              borderRadius: '50%', 
-                              fontSize: '24px',
-                              fontWeight: 'bold',
-                              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
-                            }}>
-                              {item.categoryName === '개화 상황' && '🌸'}
-                              {item.categoryName === '맛집 정보' && '🍜'}
-                              {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-                            </span>
-                          </div>
-                        )}
                       
+                        
                       {/* 좌측하단: 위치정보 + 업로드시간 */}
                       <div style={{ 
                         position: 'absolute', 
@@ -687,7 +692,7 @@ const MainScreen = () => {
         <section className="pt-8">
           <div className="flex items-center justify-between px-4 pb-3">
             <h2 className="text-text-light dark:text-text-dark text-[22px] font-bold leading-tight tracking-[-0.015em]">
-              실시간 밀집 지역
+              지금 사람 많은 곳!
             </h2>
             <button 
               onClick={() => navigate('/detail?filter=crowded')}
@@ -703,10 +708,10 @@ const MainScreen = () => {
                 people
               </span>
               <p className="text-gray-500 dark:text-gray-400 text-center text-base font-medium mb-2">
-                아직 밀집 지역 정보가 없어요
+                아직 어디가 붐비는지 정보가 없어요
               </p>
               <p className="text-gray-400 dark:text-gray-500 text-center text-sm mb-4">
-                첫 번째로 현장 정보를 공유해보세요!
+                지금 있는 곳의 상황과 느낌을 남겨 주면 다른 사람들의 선택에 도움이 돼요
               </p>
               <button
                 onClick={() => navigate('/upload')}
@@ -732,16 +737,17 @@ const MainScreen = () => {
               }}
             >
               <div className="flex items-stretch px-4 gap-3 pb-2">
-                {crowdedData.map((item) => (
-                <div 
-                  key={item.id} 
-                  className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
-                  style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
-                  onClick={() => handleItemClickWithDragCheck(item, 'crowded')}
-                >
+                {crowdedData.map((item) => {
+                  return (
                   <div 
-                      className="relative w-full aspect-[1/1.2] rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md"
-                    >
+                    key={item.id} 
+                    className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
+                    style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
+                    onClick={() => handleItemClickWithDragCheck(item, 'crowded')}
+                  >
+                      <div 
+                          className="relative w-full aspect-[1/1.2] rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md border border-border-light"
+                        >
                       {/* 동영상이 있으면 동영상 표시, 없으면 이미지 */}
                       {item.videos && item.videos.length > 0 ? (
                         <video
@@ -755,34 +761,17 @@ const MainScreen = () => {
                           onMouseLeave={(e) => e.target.pause()}
                         />
                       ) : (
-                        <div 
-                          className="w-full h-full bg-center bg-no-repeat bg-cover"
-                          style={{ backgroundImage: `url("${item.image}")` }}
+                        <img
+                          src={item.image || 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80'}
+                          alt={item.location || '여행 사진'}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80';
+                          }}
                         />
                       )}
                       {/* 그라데이션 오버레이 */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3))' }}></div>
-                      
-                      {/* 좌측상단: 카테고리 아이콘만 */}
-                      {item.categoryName && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-                          <span style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            width: '40px', 
-                            height: '40px', 
-                            borderRadius: '50%', 
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
-                          }}>
-                            {item.categoryName === '개화 상황' && '🌸'}
-                            {item.categoryName === '맛집 정보' && '🍜'}
-                            {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
                       
                       {/* 좌측하단: 위치정보 + 업로드시간 */}
                       <div style={{ 
@@ -823,7 +812,8 @@ const MainScreen = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               </div>
             </div>
           )}
@@ -911,16 +901,17 @@ const MainScreen = () => {
               }}
             >
               <div className="flex items-stretch px-4 gap-3 pb-2">
-                {(filteredRecommendedData.length > 0 ? filteredRecommendedData : recommendedData.filter(item => item.category === selectedCategory)).map((item) => (
-                <div 
-                  key={item.id} 
-                  className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
-                  style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
-                  onClick={() => handleItemClickWithDragCheck(item, 'recommended')}
-                >
+                {(filteredRecommendedData.length > 0 ? filteredRecommendedData : recommendedData.filter(item => item.category === selectedCategory)).map((item) => {
+                  return (
                   <div 
-                      className="relative w-full aspect-[1/1.2] rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md"
-                    >
+                    key={item.id} 
+                    className="flex h-full flex-col gap-2 rounded-lg w-[180px] flex-shrink-0 cursor-pointer snap-start select-none"
+                    style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
+                    onClick={() => handleItemClickWithDragCheck(item, 'recommended')}
+                  >
+                      <div 
+                          className="relative w-full aspect-[1/1.2] rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md border border-border-light"
+                        >
                       {/* 동영상이 있으면 동영상 표시, 없으면 이미지 */}
                       {item.videos && item.videos.length > 0 ? (
                         <video
@@ -934,34 +925,17 @@ const MainScreen = () => {
                           onMouseLeave={(e) => e.target.pause()}
                         />
                       ) : (
-                        <div 
-                          className="w-full h-full bg-center bg-no-repeat bg-cover"
-                          style={{ backgroundImage: `url("${item.image}")` }}
+                        <img
+                          src={item.image || 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80'}
+                          alt={item.location || '여행 사진'}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80';
+                          }}
                         />
                       )}
                       {/* 그라데이션 오버레이 */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3))' }}></div>
-                      
-                      {/* 좌측상단: 카테고리 아이콘만 */}
-                      {item.categoryName && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-                          <span style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            width: '40px', 
-                            height: '40px', 
-                            borderRadius: '50%', 
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
-                          }}>
-                            {item.categoryName === '개화 상황' && '🌸'}
-                            {item.categoryName === '맛집 정보' && '🍜'}
-                            {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
                       
                       {/* 좌측하단: 위치정보 + 업로드시간 */}
                       <div style={{ 
@@ -1002,12 +976,14 @@ const MainScreen = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               </div>
             </div>
           )}
         </section>
         </main>
+
         </div>
       </div>
 

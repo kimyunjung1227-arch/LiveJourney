@@ -211,3 +211,35 @@ export const checkAndAwardTitles = async (userId) => {
   }
 };
 
+// 오늘의 모든 타이틀 조회 (모든 사용자)
+export const getAllTodayTitles = async () => {
+  try {
+    const todayKey = getTodayKey();
+    const dailyTitlesJson = await AsyncStorage.getItem('dailyTitles');
+    const dailyTitles = dailyTitlesJson ? JSON.parse(dailyTitlesJson) : {};
+    const todayTitles = dailyTitles[todayKey] || {};
+
+    const titlesWithUsers = Object.entries(todayTitles)
+      .map(([userId, titleData]) => {
+        // 만료된 타이틀 필터링
+        const expiresAt = new Date(titleData.expiresAt);
+        if (new Date() > expiresAt) {
+          return null;
+        }
+        return {
+          userId: userId,
+          user: titleData.user || '익명', // 사용자 이름 추가
+          title: titleData,
+          earnedAt: new Date(titleData.earnedAt)
+        };
+      })
+      .filter(Boolean) // null 값 제거
+      .sort((a, b) => a.earnedAt.getTime() - b.earnedAt.getTime()); // 획득 시간순 정렬
+
+    return titlesWithUsers;
+  } catch (error) {
+    console.error('오늘의 타이틀 조회 실패:', error);
+    return [];
+  }
+};
+

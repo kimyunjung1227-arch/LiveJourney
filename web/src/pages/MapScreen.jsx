@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { getCoordinatesByLocation, searchRegions } from '../utils/regionLocationMapping';
 import { filterRecentPosts } from '../utils/timeUtils';
-import { toggleLike, isPostLiked } from '../utils/socialInteractions';
+import { toggleLike, isPostLiked, addComment } from '../utils/socialInteractions';
 import { getTimeAgo } from '../utils/timeUtils';
+import { getBadgeCongratulationMessage } from '../utils/badgeMessages';
 
 // 영어 태그를 한국어로 번역
 const tagTranslations = {
@@ -43,12 +44,24 @@ const MapScreen = () => {
   // 게시물 팝업
   const [showPostPopup, setShowPostPopup] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [earnedBadge, setEarnedBadge] = useState(null);
+
+  // 지도 잠금/해제 상태 (날씨 관련 업로드가 있는지 여부)
+  const [hasUploadedPosts, setHasUploadedPosts] = useState(false);
   
   // 팝업 상태를 ref로도 저장 (전역 함수에서 접근하기 위해)
   const popupStateRef = useRef({
     setShowPostPopup,
     setSelectedPost,
     setSelectedPinId,
+    setLiked,
+    setLikeCount,
     pinsRef,
     allPins: []
   });
@@ -59,6 +72,8 @@ const MapScreen = () => {
       setShowPostPopup,
       setSelectedPost,
       setSelectedPinId,
+      setLiked,
+      setLikeCount,
       pinsRef,
       allPins: allPins
     };
@@ -83,18 +98,87 @@ const MapScreen = () => {
   const [photoListDragDistance, setPhotoListDragDistance] = useState(0);
   const [isPhotoListMouseDown, setIsPhotoListMouseDown] = useState(false);
   
+  // 날씨 관련 게시물인지 판별하는 헬퍼
+  const isWeatherPost = (post) => {
+    const baseText = [
+      post.note,
+      Array.isArray(post.tags) ? post.tags.join(' ') : '',
+      post.location,
+      post.categoryName
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    // 간단한 날씨 관련 키워드들
+    const weatherKeywords = [
+      '날씨',
+      '맑음',
+      '흐림',
+      '비',
+      '소나기',
+      '눈',
+      '눈발',
+      '안개',
+      '바람',
+      '미세먼지',
+      '황사',
+      '체감',
+      '온도',
+      '덥',
+      '더워',
+      '추워',
+      '쌀쌀',
+      '후덥지근'
+    ];
+
+    return weatherKeywords.some((keyword) => baseText.includes(keyword));
+  };
+
+  // 최초 진입 시 "날씨 관련 업로드" 여부 확인
+  useEffect(() => {
+    try {
+      const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+      const weatherPosts = Array.isArray(posts)
+        ? posts.filter((p) => isWeatherPost(p))
+        : [];
+      setHasUploadedPosts(weatherPosts.length > 0);
+    } catch (e) {
+      console.warn('uploadedPosts 파싱 실패:', e);
+      setHasUploadedPosts(false);
+    }
+  }, []);
+
   // 초기화
   useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 50; // 최대 5초 대기 (50 * 100ms)
+    
     const init = () => {
       if (!window.kakao || !window.kakao.maps) {
-        setTimeout(init, 100);
+        retryCount++;
+        if (retryCount < maxRetries) {
+          setTimeout(init, 100);
+        } else {
+          // 타임아웃 시 로딩 해제
+          console.warn('카카오맵 로드 타임아웃');
+          setMapLoading(false);
+        }
         return;
       }
 
       if (!mapRef.current) {
-        setTimeout(init, 100);
+        retryCount++;
+        if (retryCount < maxRetries) {
+          setTimeout(init, 100);
+        } else {
+          setMapLoading(false);
+        }
         return;
       }
+      
+      // 재시도 카운터 리셋
+      retryCount = 0;
 
       try {
         // 이전 지도 상태가 있으면 복원, 없으면 현재 위치 또는 서울로 초기화
@@ -155,7 +239,7 @@ const MapScreen = () => {
                     position: absolute;
                     width: 24px;
                     height: 24px;
-                    background: linear-gradient(135deg, #ff6b35, #f7931e);
+                    background: linear-gradient(135deg, #00BCD4, #0097A7);
                     border: 3px solid white;
                     border-radius: 50%;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
@@ -218,6 +302,22 @@ const MapScreen = () => {
     init();
   }, []);
 
+  // 뱃지 획득 이벤트 리스너
+  useEffect(() => {
+    const handleBadgeEarned = (event) => {
+      const badge = event.detail;
+      console.log('🎉 뱃지 획득 이벤트 수신:', badge);
+      setEarnedBadge(badge);
+      setShowBadgeModal(true);
+    };
+
+    window.addEventListener('badgeEarned', handleBadgeEarned);
+
+    return () => {
+      window.removeEventListener('badgeEarned', handleBadgeEarned);
+    };
+  }, []);
+
   // 내 위치 마커 표시 함수
   const showMyLocationMarker = useCallback((latitude, longitude) => {
     if (!mapInstance.current) return;
@@ -252,7 +352,7 @@ const MapScreen = () => {
           position: absolute;
           width: 24px;
           height: 24px;
-          background: linear-gradient(135deg, #ff6b35, #f7931e);
+          background: linear-gradient(135deg, #00BCD4, #0097A7);
           border: 3px solid white;
           border-radius: 50%;
           box-shadow: 0 4px 12px rgba(0,0,0,0.4);
@@ -309,9 +409,12 @@ const MapScreen = () => {
   const createPins = useCallback((pins) => {
     if (!mapInstance.current) return;
     
-    pinsRef.current.forEach(({ overlay }) => {
+    pinsRef.current.forEach(({ overlay, marker }) => {
       if (overlay && overlay.setMap) {
         overlay.setMap(null);
+      }
+      if (marker && marker.setMap) {
+        marker.setMap(null);
       }
     });
     pinsRef.current = [];
@@ -340,7 +443,7 @@ const MapScreen = () => {
                 // 선택된 핀: 크기 증가 + 주황색 테두리
                 element.style.transform = 'scale(1.3)';
                 element.style.borderWidth = '4px';
-                element.style.borderColor = '#ff6b35';
+                element.style.borderColor = '#00BCD4';
                 element.style.zIndex = '9999';
               } else {
                 // 다른 핀: 기본 스타일
@@ -358,12 +461,20 @@ const MapScreen = () => {
         // 팝업에 게시물 정보 표시
         state.setSelectedPost(pin.post);
         state.setShowPostPopup(true);
+        
+        // 좋아요 상태 초기화
+        if (pin.post && state.setLiked && state.setLikeCount) {
+          const isLiked = isPostLiked(pin.post.id);
+          state.setLiked(isLiked);
+          state.setLikeCount(pin.post.likes || pin.post.likeCount || 0);
+        }
       }
     };
 
     pins.forEach((pin, i) => {
       const pos = new window.kakao.maps.LatLng(pin.lat, pin.lng);
       
+      // 모든 경우에 이미지 마커 사용 (blob URL 포함)
       const el = document.createElement('div');
       el.innerHTML = `
         <button 
@@ -371,7 +482,12 @@ const MapScreen = () => {
           style="z-index: ${i}" 
           onclick="window.handleMapPinClick('${pin.id}')"
         >
-          <img class="w-full h-full object-cover" src="${pin.image}" alt="${pin.title}"/>
+          <img 
+            class="w-full h-full object-cover" 
+            src="${pin.image}" 
+            alt="${pin.title}"
+            onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iNCIgZmlsbD0iI0YzRjRGNiIvPgo8cGF0aCBkPSJNMjQgMTZDMjAgMTYgMTcgMTkgMTcgMjNDMTcgMjcgMjAgMzAgMjQgMzBDMjggMzAgMzEgMjcgMzEgMjNDMzEgMTkgMjggMTYgMjQgMTZaIiBmaWxsPSIjOUI5Q0E1Ii8+CjxwYXRoIGQ9Ik0yNCAzMkMyMCAzMiAxNyAyOSAxNyAyNUMxNyAyMSAyMCAxOCAyNCAxOEMyOCAxOCAzMSAyMSAzMSAyNUMzMSAyOSAyOCAzMiAyNCAzMloiIGZpbGw9IiM5QjlDQTUiLz4KPC9zdmc+';"
+          />
         </button>
       `;
 
@@ -383,15 +499,26 @@ const MapScreen = () => {
       });
 
       overlay.setMap(mapInstance.current);
-      pinsRef.current.push({ id: pin.id, overlay, element: el.firstChild });
+      pinsRef.current.push({ id: pin.id, overlay, marker: null, element: el.firstChild });
     });
 
   }, [navigate, updateVisiblePins]);
 
   // 3. 데이터 로드
   const loadAllData = useCallback(() => {
-    let posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-    posts = filterRecentPosts(posts, 2);
+    const allPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+
+    // 지도 잠금 해제 기준: 최근 기록 중 "날씨 관련 게시물"이 1개 이상인지
+    const weatherPosts = Array.isArray(allPosts)
+      ? allPosts.filter((p) => isWeatherPost(p))
+      : [];
+    setHasUploadedPosts(weatherPosts.length > 0);
+
+    // 지도에 표시할 핀은 기존처럼 "최근 1일 이내 업로드" 기준으로 유지
+    let posts = filterRecentPosts(allPosts, 1);
+    console.log(
+      `🗺️ 지도 화면 - 하루 동안 올린 사진: ${posts.length}개 (전체: ${allPosts.length}개, 날씨 관련: ${weatherPosts.length}개)`
+    );
     
     const pins = posts
       .map((p) => {
@@ -418,6 +545,26 @@ const MapScreen = () => {
     }
   }, [createPins, updateVisiblePins]);
 
+  // 게시물 업데이트 이벤트 리스너
+  useEffect(() => {
+    const handlePostsUpdate = () => {
+      console.log('🗺️ 지도 화면 - 게시물 업데이트 이벤트 수신');
+      setTimeout(() => {
+        console.log('📸 지도 화면 - 데이터 새로고침 시작 (업로드 상태 갱신 포함)');
+        loadAllData();
+        console.log('✅ 지도 화면 - 데이터 새로고침 완료');
+      }, 200); // 100ms -> 200ms로 증가하여 데이터 저장 완료 대기
+    };
+
+    window.addEventListener('newPostsAdded', handlePostsUpdate);
+    window.addEventListener('postsUpdated', handlePostsUpdate);
+
+    return () => {
+      window.removeEventListener('newPostsAdded', handlePostsUpdate);
+      window.removeEventListener('postsUpdated', handlePostsUpdate);
+    };
+  }, [loadAllData]);
+
   useEffect(() => {
     if (allPins.length > 0 && mapInstance.current) {
       const listener = window.kakao.maps.event.addListener(mapInstance.current, 'idle', updateVisiblePins);
@@ -438,7 +585,7 @@ const MapScreen = () => {
             if (id === pinId) {
               element.style.transform = 'scale(1.3)';
               element.style.borderWidth = '4px';
-              element.style.borderColor = '#ff6b35';
+              element.style.borderColor = '#00BCD4';
               element.style.zIndex = '9999';
             } else {
               element.style.transform = 'scale(1)';
@@ -502,10 +649,47 @@ const MapScreen = () => {
 
   // 새로고침
   const refresh = () => {
-    pinsRef.current.forEach(({ overlay }) => overlay.setMap(null));
+    pinsRef.current.forEach(({ overlay, marker }) => {
+      if (overlay) {
+        overlay.setMap(null);
+      }
+      if (marker) {
+        marker.setMap(null);
+      }
+    });
     pinsRef.current = [];
     loadAllData();
   };
+  
+  // 좋아요 처리
+  const handleLike = useCallback(() => {
+    if (!selectedPost) return;
+    
+    const wasLiked = liked;
+    // 즉각적으로 UI 업데이트
+    const newLikedState = !liked;
+    setLiked(newLikedState);
+    
+    const result = toggleLike(selectedPost.id);
+    setLiked(result.isLiked);
+    setLikeCount(result.newCount);
+    
+    // 좋아요를 누를 때만 애니메이션 표시 (좋아요 취소가 아닐 때)
+    if (result.isLiked && !wasLiked) {
+      setShowHeartAnimation(true);
+      
+      // 애니메이션 완료 후 숨기기
+      setTimeout(() => {
+        setShowHeartAnimation(false);
+      }, 1000);
+    }
+    
+    // selectedPost 업데이트
+    setSelectedPost({
+      ...selectedPost,
+      likes: result.newCount
+    });
+  }, [selectedPost, liked]);
 
   // 더보기 화면에서 선택된 핀으로 이동
   useEffect(() => {
@@ -656,6 +840,62 @@ const MapScreen = () => {
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-lg font-semibold">지도 로딩 중...</p>
+          </div>
+        </div>
+      )}
+
+      {/* 날씨 관련 업로드 전 지도 잠금 오버레이 */}
+      {!mapLoading && !hasUploadedPosts && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 60,
+            background:
+              'radial-gradient(circle at top, rgba(15,23,42,0.75), rgba(15,23,42,0.95))',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            className="max-w-sm w-full rounded-3xl bg-white/90 dark:bg-zinc-900/90 shadow-2xl border border-white/40 dark:border-zinc-700 p-6 text-center relative"
+          >
+            {/* 뒤로가기 버튼 */}
+            <button
+              type="button"
+              onClick={() => navigate('/main')}
+              className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100/90 dark:bg-zinc-800/90 text-zinc-600 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+            </button>
+
+            <div className="mt-2 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary shadow-inner">
+                <span className="material-symbols-outlined text-3xl">
+                  location_on
+                </span>
+              </div>
+            </div>
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-3">
+              지금 날씨 정보 올려주세요 ☀️
+            </h2>
+            <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4 leading-relaxed">
+              사진 한 장만 올리면<br />지도 기능을 바로 사용할 수 있어요
+            </p>
+            <p className="text-base text-zinc-600 dark:text-zinc-300 mb-6 leading-relaxed">
+              날씨 사진을 올리면<br />수백 명에게 도움이 돼요
+            </p>
+            <button
+              onClick={() => navigate('/upload', { state: { fromMap: true } })}
+              className="w-full h-12 rounded-xl bg-primary text-white text-base font-bold shadow-lg hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">add_a_photo</span>
+              <span>날씨 사진 올리기</span>
+            </button>
           </div>
         </div>
       )}
@@ -1009,7 +1249,7 @@ const MapScreen = () => {
                               // 선택된 핀: 크기 증가 + 주황색 테두리 강조
                               element.style.transform = 'scale(1.5)';
                               element.style.borderWidth = '4px';
-                              element.style.borderColor = '#ff6b35';
+                              element.style.borderColor = '#00BCD4';
                               element.style.zIndex = '9999';
                               element.style.transition = 'all 0.3s ease';
                               element.style.boxShadow = '0 0 0 4px rgba(255, 107, 53, 0.3), 0 4px 12px rgba(255, 107, 53, 0.4)';
@@ -1062,7 +1302,7 @@ const MapScreen = () => {
                           borderRadius: '12px',
                           objectFit: 'cover',
                           boxShadow: selectedPinId === pin.id 
-                            ? '0 0 0 3px #ff6b35, 0 4px 12px rgba(255, 107, 53, 0.4)' 
+                            ? '0 0 0 3px #00BCD4, 0 4px 12px rgba(0, 188, 212, 0.4)' 
                             : '0 2px 8px rgba(0,0,0,0.1)',
                           transform: selectedPinId === pin.id ? 'scale(1.05)' : 'scale(1)',
                           transition: 'all 0.3s ease'
@@ -1075,25 +1315,6 @@ const MapScreen = () => {
                         borderRadius: '12px'
                       }} />
                       
-                      {/* 좌측상단: 카테고리 아이콘 */}
-                      {pin.post?.categoryName && (
-                        <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 1 }}>
-                          <span style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            width: '32px', 
-                            height: '32px', 
-                            fontSize: '18px',
-                            filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.4))',
-                            background: 'transparent'
-                          }}>
-                            {pin.post.categoryName === '개화 상황' && '🌸'}
-                            {pin.post.categoryName === '맛집 정보' && '🍜'}
-                            {(!pin.post.categoryName || !['개화 상황', '맛집 정보'].includes(pin.post.categoryName)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
                     </div>
                     <div style={{
                       width: '96px',
@@ -1277,6 +1498,19 @@ const MapScreen = () => {
             setSelectedPost(null);
           }}
         >
+          {/* 하트 애니메이션 오버레이 */}
+          {showHeartAnimation && (
+            <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none">
+              {/* 펄스 링 (큰 하트 강조 효과) */}
+              <div className="pulse-ring"></div>
+              
+              {/* 큰 중앙 하트 */}
+              <div className="heart-animation">
+                <span className="text-[120px]" style={{ color: '#ef4444' }}>♥️</span>
+              </div>
+            </div>
+          )}
+          
           <div 
             style={{
               backgroundColor: 'white',
@@ -1287,7 +1521,8 @@ const MapScreen = () => {
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              position: 'relative'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1419,7 +1654,7 @@ const MapScreen = () => {
                   gap: '8px',
                   marginBottom: '8px'
                 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#ff6b35' }}>location_on</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#00BCD4' }}>location_on</span>
                   <p style={{
                     fontSize: '16px',
                     fontWeight: 'bold',
@@ -1449,57 +1684,62 @@ const MapScreen = () => {
               </div>
 
               {/* 태그 */}
-              {(selectedPost.tags && selectedPost.tags.length > 0) || (selectedPost.aiLabels && selectedPost.aiLabels.length > 0) ? (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}>
-                    {(selectedPost.tags || []).map((tag, index) => {
-                      const tagText = typeof tag === 'string' ? tag.replace('#', '') : tag.name || '태그';
-                      const koreanTag = tagTranslations[tagText.toLowerCase()] || tagText;
-                      return (
-                        <span
-                          key={index}
-                          style={{
-                            fontSize: '12px',
-                            fontWeight: '500',
-                            color: '#ff6b35',
-                            backgroundColor: '#fff5f0',
-                            padding: '6px 12px',
-                            borderRadius: '20px'
-                          }}
-                        >
-                          #{koreanTag}
-                        </span>
-                      );
-                    })}
-                    {(selectedPost.aiLabels || []).map((label, index) => {
-                      // label이 문자열이 아닐 수 있으므로 안전하게 처리
-                      const labelText = typeof label === 'string' ? label : (label?.name || label?.label || String(label || ''));
-                      const koreanLabel = labelText && typeof labelText === 'string' 
-                        ? (tagTranslations[labelText.toLowerCase()] || labelText)
-                        : String(labelText || '');
-                      return (
-                        <span
-                          key={`ai-${index}`}
-                          style={{
-                            fontSize: '12px',
-                            fontWeight: '500',
-                            color: '#ff6b35',
-                            backgroundColor: '#fff5f0',
-                            padding: '6px 12px',
-                            borderRadius: '20px'
-                          }}
-                        >
-                          #{koreanLabel}
-                        </span>
-                      );
-                    })}
+              {(() => {
+                // tags와 aiLabels를 합치고 중복 제거
+                const allTags = [];
+                const seenTags = new Set();
+                
+                // tags 처리
+                (selectedPost.tags || []).forEach((tag) => {
+                  const tagText = typeof tag === 'string' ? tag.replace('#', '') : tag.name || '태그';
+                  const normalizedTag = tagText.toLowerCase().trim();
+                  if (normalizedTag && !seenTags.has(normalizedTag)) {
+                    seenTags.add(normalizedTag);
+                    allTags.push(tagText);
+                  }
+                });
+                
+                // aiLabels 처리
+                (selectedPost.aiLabels || []).forEach((label) => {
+                  const labelText = typeof label === 'string' ? label : (label?.name || label?.label || String(label || ''));
+                  const normalizedLabel = labelText && typeof labelText === 'string' 
+                    ? labelText.toLowerCase().trim()
+                    : String(labelText || '').toLowerCase().trim();
+                  if (normalizedLabel && !seenTags.has(normalizedLabel)) {
+                    seenTags.add(normalizedLabel);
+                    allTags.push(labelText);
+                  }
+                });
+                
+                return allTags.length > 0 ? (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '8px'
+                    }}>
+                      {allTags.map((tag, index) => {
+                        const koreanTag = tagTranslations[tag.toLowerCase()] || tag;
+                        return (
+                          <span
+                            key={index}
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              color: '#00BCD4',
+                              backgroundColor: '#fff5f0',
+                              padding: '6px 12px',
+                              borderRadius: '20px'
+                            }}
+                          >
+                            #{koreanTag}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null;
+              })()}
 
               {/* 내용 */}
               {selectedPost.note && (
@@ -1531,14 +1771,7 @@ const MapScreen = () => {
                 borderBottom: '1px solid #e4e4e7'
               }}>
                 <button
-                  onClick={() => {
-                    if (!selectedPost) return;
-                    const result = toggleLike(selectedPost.id);
-                    setSelectedPost({
-                      ...selectedPost,
-                      likes: result.newCount
-                    });
-                  }}
+                  onClick={handleLike}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1549,15 +1782,31 @@ const MapScreen = () => {
                     padding: '4px'
                   }}
                 >
-                  <span className={`material-symbols-outlined ${isPostLiked(selectedPost.id) ? 'text-red-500 fill' : 'text-gray-600'}`} style={{ fontSize: '24px' }}>
-                    favorite
-                  </span>
+                  {liked ? (
+                    <span 
+                      className="material-symbols-outlined text-red-500 fill"
+                      style={{ 
+                        fontSize: '24px',
+                        fontVariationSettings: "'FILL' 1",
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      favorite
+                    </span>
+                  ) : (
+                    <span 
+                      className="material-symbols-outlined text-gray-600"
+                      style={{ fontSize: '24px' }}
+                    >
+                      favorite_border
+                    </span>
+                  )}
                   <span style={{
                     fontSize: '14px',
                     fontWeight: '600',
-                    color: '#18181b'
+                    color: liked ? '#ef4444' : '#18181b'
                   }}>
-                    {selectedPost.likes || selectedPost.likeCount || 0}
+                    {likeCount}
                   </span>
                 </button>
                 <div style={{
@@ -1571,8 +1820,187 @@ const MapScreen = () => {
                     fontWeight: '600',
                     color: '#18181b'
                   }}>
-                    {(selectedPost.comments || []).length + (selectedPost.qnaList || []).length}
+                    {comments.length}
                   </span>
+                </div>
+              </div>
+
+              {/* 댓글 섹션 */}
+              {comments.length > 0 && (
+                <div style={{
+                  padding: '16px',
+                  borderTop: '1px solid #e4e4e7'
+                }}>
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    margin: 0,
+                    marginBottom: '16px'
+                  }}>
+                    댓글 {comments.length}
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {comments.map((comment, index) => {
+                      const postUserId = selectedPost?.userId || 
+                                        (typeof selectedPost?.user === 'string' ? selectedPost.user : selectedPost?.user?.id) ||
+                                        selectedPost?.user;
+                      const commentUserId = comment.userId || 
+                                         (typeof comment.user === 'string' ? comment.user : comment.user?.id) ||
+                                         comment.user;
+                      const isAuthor = postUserId && commentUserId && postUserId === commentUserId;
+                      
+                      return (
+                        <div key={comment.id || index} style={{
+                          display: 'flex',
+                          gap: '12px'
+                        }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: '#e4e4e7',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#71717a' }}>person</span>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              marginBottom: '4px'
+                            }}>
+                              <span style={{
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                color: '#18181b'
+                              }}>
+                                {comment.user || comment.username || '익명'}
+                              </span>
+                              {isAuthor && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 'bold',
+                                  color: '#00BCD4',
+                                  backgroundColor: '#fff5f0',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px'
+                                }}>
+                                  작성자
+                                </span>
+                              )}
+                              {comment.timestamp && (
+                                <span style={{
+                                  fontSize: '12px',
+                                  color: '#71717a',
+                                  marginLeft: 'auto'
+                                }}>
+                                  {getTimeAgo(comment.timestamp)}
+                                </span>
+                              )}
+                            </div>
+                            <p style={{
+                              fontSize: '14px',
+                              color: '#18181b',
+                              margin: 0,
+                              lineHeight: '1.5'
+                            }}>
+                              {comment.content || comment.comment || comment.text}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 댓글 입력 */}
+              <div style={{
+                padding: '16px',
+                borderTop: '1px solid #e4e4e7',
+                backgroundColor: '#fafafa'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'flex-end'
+                }}>
+                  <input
+                    type="text"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && commentText.trim()) {
+                        e.preventDefault();
+                        const username = JSON.parse(localStorage.getItem('user') || '{}')?.username || '익명';
+                        const userId = JSON.parse(localStorage.getItem('user') || '{}')?.id;
+                        const newComments = addComment(selectedPost.id, commentText.trim(), username, userId);
+                        setComments(newComments);
+                        setCommentText('');
+                        
+                        // 게시물 업데이트
+                        const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+                        const updatedPost = posts.find(p => p.id === selectedPost.id);
+                        if (updatedPost) {
+                          setSelectedPost(updatedPost);
+                        }
+                      }
+                    }}
+                    placeholder="댓글을 입력하세요..."
+                    style={{
+                      flex: 1,
+                      minHeight: '40px',
+                      maxHeight: '100px',
+                      padding: '10px 16px',
+                      backgroundColor: 'white',
+                      borderRadius: '20px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '14px',
+                      color: '#18181b',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!commentText.trim() || !selectedPost) return;
+                      const username = JSON.parse(localStorage.getItem('user') || '{}')?.username || '익명';
+                      const userId = JSON.parse(localStorage.getItem('user') || '{}')?.id;
+                      const newComments = addComment(selectedPost.id, commentText.trim(), username, userId);
+                      setComments(newComments);
+                      setCommentText('');
+                      
+                      // 게시물 업데이트
+                      const posts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+                      const updatedPost = posts.find(p => p.id === selectedPost.id);
+                      if (updatedPost) {
+                        setSelectedPost(updatedPost);
+                      }
+                    }}
+                    disabled={!commentText.trim()}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundColor: commentText.trim() ? '#00BCD4' : '#e4e4e7',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: commentText.trim() ? 'pointer' : 'not-allowed',
+                      flexShrink: 0
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ 
+                      fontSize: '20px', 
+                      color: commentText.trim() ? 'white' : '#71717a' 
+                    }}>
+                      send
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -1580,12 +2008,17 @@ const MapScreen = () => {
               <button
                 onClick={() => {
                   setShowPostPopup(false);
+                  // allPins에서 모든 게시물 추출
+                  const allPosts = allPins.map(pin => pin.post).filter(Boolean);
+                  const currentIndex = allPosts.findIndex(p => p.id === selectedPost.id);
                   navigate(`/post/${selectedPost.id}`, {
                     state: {
                       post: selectedPost,
                       fromMap: true,
                       selectedPinId: selectedPinId,
                       allPins: allPins,
+                      allPosts: allPosts,
+                      currentPostIndex: currentIndex >= 0 ? currentIndex : 0,
                       mapState: mapInstance.current ? {
                         lat: mapInstance.current.getCenter().getLat(),
                         lng: mapInstance.current.getCenter().getLng(),
@@ -1599,7 +2032,7 @@ const MapScreen = () => {
                   width: '100%',
                   marginTop: '16px',
                   padding: '14px',
-                  backgroundColor: '#ff6b35',
+                  backgroundColor: '#00BCD4',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',
@@ -1625,6 +2058,74 @@ const MapScreen = () => {
       }}>
         <BottomNavigation />
       </div>
+
+      {/* 뱃지 획득 모달 */}
+      {showBadgeModal && earnedBadge && (() => {
+        const message = getBadgeCongratulationMessage(earnedBadge.name);
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 animate-fade-in">
+            <div className="w-full max-w-sm transform rounded-3xl bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-zinc-800 dark:to-zinc-900 p-8 shadow-2xl border-4 border-primary animate-scale-up">
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <div className="flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-primary via-primary to-accent shadow-2xl">
+                    <span className="text-6xl">{earnedBadge.icon || '🏆'}</span>
+                  </div>
+                  <div className="absolute inset-0 rounded-full bg-yellow-400/40 animate-ping"></div>
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-xl animate-bounce">
+                    NEW!
+                  </div>
+                </div>
+              </div>
+
+              <h1 className="text-3xl font-bold text-center mb-3 text-zinc-900 dark:text-white">
+                {message.title || '축하합니다!'}
+              </h1>
+              
+              <p className="text-xl font-bold text-center text-primary mb-2">
+                {earnedBadge.name || earnedBadge}
+              </p>
+              
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                  earnedBadge.difficulty === '상' ? 'bg-primary-dark text-white' :
+                  earnedBadge.difficulty === '중' ? 'bg-blue-500 text-white' :
+                  'bg-green-500 text-white'
+                }`}>
+                  난이도: {earnedBadge.difficulty || '하'}
+                </div>
+              </div>
+              
+              <p className="text-base font-medium text-center text-zinc-700 dark:text-zinc-300 mb-2">
+                {message.subtitle || '뱃지를 획득했습니다!'}
+              </p>
+              
+              <p className="text-sm text-center text-zinc-600 dark:text-zinc-400 mb-8 whitespace-pre-line">
+                {message.message || earnedBadge.description || '여행 기록을 계속 쌓아가며 더 많은 뱃지를 획득해보세요!'}
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowBadgeModal(false);
+                    navigate('/profile');
+                  }}
+                  className="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                >
+                  내 프로필에서 확인하기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBadgeModal(false);
+                  }}
+                  className="w-full bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 py-4 rounded-xl font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-all transform hover:scale-105 active:scale-95"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNavigation from '../components/BottomNavigation';
 import { createPost } from '../api/posts';
 import { uploadImage } from '../api/upload';
@@ -9,11 +9,12 @@ import { safeSetItem, logLocalStorageStatus } from '../utils/localStorageManager
 import { checkNewBadges, awardBadge, hasSeenBadge, markBadgeAsSeen } from '../utils/badgeSystem';
 import { analyzeImageForTags, getRecommendedTags } from '../utils/aiImageAnalyzer';
 import { getCurrentTimestamp, getTimeAgo } from '../utils/timeUtils';
-import { checkAndAwardTitles } from '../utils/dailyTitleSystem';
 import { gainExp } from '../utils/levelSystem';
+import { getBadgeCongratulationMessage, getBadgeDifficultyEffects } from '../utils/badgeMessages';
 
 const UploadScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -118,12 +119,22 @@ const UploadScreen = () => {
   }, []);
 
   const analyzeImageAndGenerateTags = useCallback(async (file, location = '', note = '') => {
+    // 사진 파일이 없으면 분석하지 않음
+    if (!file) {
+      setAutoTags([]);
+      return;
+    }
+    
     setLoadingAITags(true);
     try {
       const analysisResult = await analyzeImageForTags(file, location, note);
       
-      if (analysisResult.success) {
-        const hashtagged = analysisResult.tags.map(tag => 
+      if (analysisResult.success && analysisResult.tags && analysisResult.tags.length > 0) {
+        // 7~8개로 제한 (7개 또는 8개)
+        const tagCount = Math.min(analysisResult.tags.length, 8);
+        const limitedTags = analysisResult.tags.slice(0, tagCount);
+        
+        const hashtagged = limitedTags.map(tag => 
           tag.startsWith('#') ? tag : `#${tag}`
         );
         
@@ -136,8 +147,9 @@ const UploadScreen = () => {
         }));
         
       } else {
-        const recommendedTags = getRecommendedTags('all');
-        setAutoTags(recommendedTags.map(tag => `#${tag}`).slice(0, 8));
+        // 분석 실패 시 사진 기반 기본 태그만 제공 (7개)
+        const defaultTags = ['여행', '추억', '풍경', '힐링', '아름다운', '기억에남는', '즐거운'];
+        setAutoTags(defaultTags.map(tag => `#${tag}`).slice(0, 7));
         
         setFormData(prev => ({
           ...prev,
@@ -149,8 +161,9 @@ const UploadScreen = () => {
       
     } catch (error) {
       console.error('AI 분석 실패:', error);
-      const defaultTags = ['여행', '추억', '풍경', '힐링', '맛집'];
-      setAutoTags(defaultTags.map(tag => `#${tag}`));
+      // 에러 발생 시에도 사진 기반 기본 태그 제공 (7개)
+      const defaultTags = ['여행', '추억', '풍경', '힐링', '아름다운', '기억에남는', '즐거운'];
+      setAutoTags(defaultTags.map(tag => `#${tag}`).slice(0, 7));
       
       setFormData(prev => ({
         ...prev,
@@ -203,9 +216,10 @@ const UploadScreen = () => {
 
     if (isFirstMedia && (imageFiles.length > 0 || videoFiles.length > 0)) {
       getCurrentLocation();
-      const firstFile = imageFiles[0] || videoFiles[0];
-      if (firstFile && !firstFile.type.startsWith('video/')) {
-        analyzeImageAndGenerateTags(firstFile, formData.location, formData.note);
+      // 사진 파일만 분석 (동영상은 제외)
+      const firstImageFile = imageFiles[0];
+      if (firstImageFile && !firstImageFile.type.startsWith('video/')) {
+        analyzeImageAndGenerateTags(firstImageFile, formData.location, formData.note);
       }
     }
   }, [formData.images.length, formData.videos.length, formData.location, formData.note, getCurrentLocation, analyzeImageAndGenerateTags]);
@@ -219,7 +233,8 @@ const UploadScreen = () => {
     }
     
     reanalysisTimerRef.current = setTimeout(() => {
-      if (formData.location || formData.note) {
+      // 사진 파일이 있을 때만 재분석
+      if (formData.imageFiles.length > 0 && (formData.location || formData.note)) {
         analyzeImageAndGenerateTags(formData.imageFiles[0], formData.location, formData.note);
       }
     }, 1000);
@@ -282,40 +297,60 @@ const UploadScreen = () => {
   }, [formData.tags]);
 
   const checkAndAwardBadge = useCallback(() => {
-    console.log('Badge check started');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🏆 뱃지 체크 및 획득 시작');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    const newBadges = checkNewBadges();
-    console.log('New badges available:', newBadges);
-    
-    if (newBadges.length > 0) {
-      const badge = newBadges[0];
+    try {
+      const newBadges = checkNewBadges();
+      console.log(`📋 발견된 새 뱃지: ${newBadges.length}개`);
       
-      console.log(`Badge earned: ${badge.name}`);
-      console.log(`Difficulty: ${badge.difficulty}`);
-      
-      const awarded = awardBadge(badge);
-      
-      if (awarded) {
-        notifyBadge(badge.name, badge.difficulty);
-        console.log('Notification sent');
+      if (newBadges.length > 0) {
+        // 모든 새 뱃지 획득 처리
+        let awardedCount = 0;
         
-        setEarnedBadge(badge);
-        setShowBadgeModal(true);
-        console.log('Badge modal shown:', { earnedBadge: badge, showBadgeModal: true });
+        newBadges.forEach((badge, index) => {
+          console.log(`\n🎯 뱃지 ${index + 1}/${newBadges.length} 처리 중: ${badge.name}`);
+          console.log(`   난이도: ${badge.difficulty}`);
+          console.log(`   설명: ${badge.description}`);
+          
+          const awarded = awardBadge(badge);
+          
+          if (awarded) {
+            awardedCount++;
+            console.log(`   ✅ 뱃지 획득 성공: ${badge.name}`);
+            
+            // 첫 번째 뱃지만 모달 표시
+            if (index === 0) {
+              notifyBadge(badge.name, badge.difficulty);
+              console.log('   📢 알림 전송 완료');
+              
+              setEarnedBadge(badge);
+              setShowBadgeModal(true);
+              setBadgeAnimationKey(prev => prev + 1); // 애니메이션 트리거
+              console.log('   🎉 뱃지 모달 표시');
+              
+              gainExp(`뱃지 획득 (${badge.difficulty})`);
+            }
+          } else {
+            console.log(`   ❌ 뱃지 획득 실패: ${badge.name}`);
+          }
+        });
         
-        console.log(`Badge completed: ${badge.name}`);
+        console.log(`\n✅ 총 ${awardedCount}개의 뱃지 획득 완료`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        gainExp(`뱃지 획득 (${badge.difficulty})`);
-        
-        console.log('========================================');
-        
-        return true;
+        return awardedCount > 0;
+      } else {
+        console.log('📭 획득 가능한 새 뱃지가 없습니다');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return false;
       }
+    } catch (error) {
+      console.error('❌ 뱃지 체크 오류:', error);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      return false;
     }
-    
-    console.log('Badge requirements not met');
-    console.log('========================================');
-    return false;
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -415,16 +450,120 @@ const UploadScreen = () => {
         const result = await createPost(postData);
         
         if (result.success) {
+          // 백엔드 업로드 성공 시에도 localStorage에 저장 (뱃지 시스템을 위해)
+          const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const currentUser = user || savedUser;
+          const username = currentUser?.username || currentUser?.email?.split('@')[0] || '모사모';
+          const currentUserId = currentUser?.id || savedUser?.id || 'test_user_001';
+          
+          const backendPost = result.post || result.data;
+          
+          // 이미지 URL 확인 및 설정
+          const finalImages = uploadedImageUrls.length > 0 
+            ? uploadedImageUrls 
+            : (formData.images && formData.images.length > 0 ? formData.images : []);
+          const finalVideos = uploadedVideoUrls.length > 0 
+            ? uploadedVideoUrls 
+            : (formData.videos && formData.videos.length > 0 ? formData.videos : []);
+          
+          console.log('📸 최종 이미지/동영상 (백엔드):', {
+            images: finalImages.length,
+            videos: finalVideos.length,
+            imageUrls: finalImages,
+            videoUrls: finalVideos
+          });
+          
+          if (finalImages.length === 0 && finalVideos.length === 0) {
+            console.error('❌ 이미지 또는 동영상이 없습니다!');
+            alert('이미지 또는 동영상이 업로드되지 않았습니다');
+            setUploading(false);
+            setUploadProgress(0);
+            return;
+          }
+          
+          // 지역 정보 추출 (첫 번째 단어를 지역으로 사용)
+          const region = formData.location?.split(' ')[0] || '기타';
+          
+          const uploadedPost = {
+            id: backendPost?._id || backendPost?.id || `backend-${Date.now()}`,
+            userId: currentUserId,
+            images: finalImages,
+            videos: finalVideos,
+            location: formData.location,
+            tags: formData.tags,
+            note: formData.note,
+            timestamp: backendPost?.createdAt || getCurrentTimestamp(),
+            createdAt: backendPost?.createdAt || getCurrentTimestamp(),
+            timeLabel: getTimeAgo(new Date(backendPost?.createdAt || Date.now())),
+            user: username,
+            likes: backendPost?.likesCount || 0,
+            isNew: true,
+            isLocal: false,
+            category: aiCategory,
+            categoryName: aiCategoryName,
+            aiLabels: aiLabels,
+            coordinates: formData.coordinates,
+            detailedLocation: formData.location,
+            placeName: formData.location,
+            region: region // 지역 정보 추가
+          };
+          
+          // localStorage에 저장
+          const existingPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+          const updatedPosts = [uploadedPost, ...existingPosts];
+          safeSetItem('uploadedPosts', JSON.stringify(updatedPosts));
+          
+          console.log('✅ 백엔드 업로드 성공 및 localStorage 저장 완료:', {
+            저장된게시물수: updatedPosts.length,
+            새게시물ID: uploadedPost.id,
+            새게시물userId: uploadedPost.userId
+          });
+          
           setUploadProgress(100);
           setShowSuccessModal(true);
           
           console.log('Backend upload success! Checking badges...');
           
+          // 게시물 업데이트 이벤트 발생 (localStorage 저장 후)
+          setTimeout(() => {
+            console.log('📢 게시물 업데이트 이벤트 발생 (백엔드)');
+            window.dispatchEvent(new Event('newPostsAdded'));
+            window.dispatchEvent(new Event('postsUpdated'));
+            console.log('✅ 이벤트 전송 완료');
+          }, 100); // 50ms -> 100ms로 증가하여 저장 완료 대기
+          
+          // 데이터 저장 완료 후 뱃지 체크 (더 긴 지연 시간)
           setTimeout(() => {
             console.log('Badge check timer running');
-            const earnedBadge = checkAndAwardBadge();
             
+            // localStorage 저장 확인
+            const verifyPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+            const verifyPost = verifyPosts.find(p => p.id === uploadedPost.id);
+            console.log('🔍 저장 확인 (백엔드):', {
+              저장된게시물수: verifyPosts.length,
+              새게시물존재: !!verifyPost,
+              새게시물이미지: verifyPost?.images?.length || 0
+            });
+            
+            // 사진 업로드 시 레벨 상승 (실제 업로드만)
+            const expResult = gainExp('사진 업로드');
+            if (expResult.levelUp) {
+              console.log(`Level up! Lv.${expResult.newLevel}`);
+              window.dispatchEvent(new CustomEvent('levelUp', { 
+                detail: { 
+                  newLevel: expResult.newLevel
+                } 
+              }));
+            }
+            
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('🏆 뱃지 체크 시작');
+            const earnedBadge = checkAndAwardBadge();
             console.log('Badge earned result:', earnedBadge);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
+            // 뱃지 진행률 업데이트 이벤트 발생
+            window.dispatchEvent(new Event('badgeProgressUpdated'));
             
             if (!earnedBadge) {
               console.log('Navigate to main in 2 seconds...');
@@ -435,19 +574,54 @@ const UploadScreen = () => {
             } else {
               console.log('Badge earned! Showing badge modal...');
             }
-          }, 500);
+          }, 1000); // 500ms -> 1000ms로 증가하여 데이터 저장 완료 대기
         }
       } catch (postError) {
         console.log('Backend API failed - using localStorage');
         
         const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const username = user?.username || savedUser.username || '모사모';
+        const currentUser = user || savedUser;
+        const username = currentUser?.username || currentUser?.email?.split('@')[0] || '모사모';
+        const currentUserId = currentUser?.id || savedUser?.id || 'test_user_001';
+        
+        console.log('📸 게시물 저장 정보:', {
+          userId: currentUserId,
+          username: username,
+          images: uploadedImageUrls.length > 0 ? uploadedImageUrls.length : formData.images.length,
+          location: formData.location
+        });
+        
+        // 이미지 URL 확인 및 설정
+        const finalImages = uploadedImageUrls.length > 0 
+          ? uploadedImageUrls 
+          : (formData.images && formData.images.length > 0 ? formData.images : []);
+        const finalVideos = uploadedVideoUrls.length > 0 
+          ? uploadedVideoUrls 
+          : (formData.videos && formData.videos.length > 0 ? formData.videos : []);
+        
+        console.log('📸 최종 이미지/동영상:', {
+          images: finalImages.length,
+          videos: finalVideos.length,
+          imageUrls: finalImages,
+          videoUrls: finalVideos
+        });
+        
+        if (finalImages.length === 0 && finalVideos.length === 0) {
+          console.error('❌ 이미지 또는 동영상이 없습니다!');
+          alert('이미지 또는 동영상을 추가해주세요');
+          setUploading(false);
+          setUploadProgress(0);
+          return;
+        }
+        
+        // 지역 정보 추출 (첫 번째 단어를 지역으로 사용)
+        const region = formData.location?.split(' ')[0] || '기타';
         
         const uploadedPost = {
           id: `local-${Date.now()}`,
-          userId: user?.id || 'test_user_001',
-          images: uploadedImageUrls.length > 0 ? uploadedImageUrls : formData.images,
-          videos: uploadedVideoUrls.length > 0 ? uploadedVideoUrls : formData.videos,
+          userId: currentUserId,
+          images: finalImages,
+          videos: finalVideos,
           location: formData.location,
           tags: formData.tags,
           note: formData.note,
@@ -463,52 +637,83 @@ const UploadScreen = () => {
           aiLabels: aiLabels,
           coordinates: formData.coordinates,
           detailedLocation: formData.location,
-          placeName: formData.location
+          placeName: formData.location,
+          region: region // 지역 정보 추가
         };
         
         logLocalStorageStatus();
         
         const existingPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-        const saveResult = safeSetItem('uploadedPosts', JSON.stringify([uploadedPost, ...existingPosts]));
+        const updatedPosts = [uploadedPost, ...existingPosts];
+        const saveResult = safeSetItem('uploadedPosts', JSON.stringify(updatedPosts));
         
         if (!saveResult.success) {
           console.error('localStorage save failed:', saveResult.message);
           throw new Error(saveResult.message || 'localStorage save failed');
         }
         
-        window.dispatchEvent(new Event('newPostsAdded'));
+        console.log('✅ 게시물 저장 완료:', {
+          저장된게시물수: updatedPosts.length,
+          새게시물ID: uploadedPost.id,
+          새게시물userId: uploadedPost.userId
+        });
+        
+        // 게시물 업데이트 이벤트 발생 (뱃지 진행률 업데이트를 위해)
+        // localStorage 저장 후 이벤트 발생
+        setTimeout(() => {
+          console.log('📢 게시물 업데이트 이벤트 발생 (localStorage)');
+          window.dispatchEvent(new Event('newPostsAdded'));
+          window.dispatchEvent(new Event('postsUpdated'));
+          console.log('✅ 이벤트 전송 완료');
+        }, 100); // 50ms -> 100ms로 증가하여 저장 완료 대기
         
         setUploadProgress(100);
         setShowSuccessModal(true);
         
         console.log('Upload success! Checking badges & titles...');
         
+        // 데이터 저장 완료 후 뱃지 체크 (더 긴 지연 시간)
         setTimeout(() => {
           console.log('Badge check timer running');
           
+          // localStorage 저장 확인
+          const verifyPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+          const verifyPost = verifyPosts.find(p => p.id === uploadedPost.id);
+          console.log('🔍 저장 확인:', {
+            저장된게시물수: verifyPosts.length,
+            새게시물존재: !!verifyPost,
+            새게시물이미지: verifyPost?.images?.length || 0
+          });
+          
+          // 사진 업로드 시 레벨 상승 (실제 업로드만)
           const expResult = gainExp('사진 업로드');
           if (expResult.levelUp) {
             console.log(`Level up! Lv.${expResult.newLevel}`);
+            window.dispatchEvent(new CustomEvent('levelUp', { 
+              detail: { 
+                newLevel: expResult.newLevel
+              } 
+            }));
           }
           
-          const earnedTitle = checkAndAwardTitles(user.id);
-          if (earnedTitle) {
-            console.log(`24-hour title earned: ${earnedTitle.name}`);
-            gainExp('24시간 타이틀');
-          }
-          
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('🏆 뱃지 체크 시작');
           const earnedBadge = checkAndAwardBadge();
-          
           console.log('Badge earned result:', earnedBadge);
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           
-          if (!earnedBadge) {
+          // 뱃지 진행률 업데이트 이벤트 발생
+          window.dispatchEvent(new Event('badgeProgressUpdated'));
+          
+            // 뱃지가 없으면 메인으로 이동
+            if (!earnedBadge) {
             console.log('Navigate to main in 2 seconds...');
             setTimeout(() => {
               setShowSuccessModal(false);
               navigate('/main');
             }, 2000);
           } else {
-            console.log('Badge earned! Showing badge modal...');
+            console.log('Badge or Title earned! Showing modal...');
           }
         }, 500);
       }
@@ -526,10 +731,16 @@ const UploadScreen = () => {
       <div className="screen-content">
         <header className="screen-header flex h-16 items-center border-b border-subtle-light/50 dark:border-subtle-dark/50 bg-white dark:bg-gray-900 shadow-sm px-4">
           <button 
-            onClick={() => navigate(-1)}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full text-text-light dark:text-text-dark"
+            onClick={() => {
+              if (location.state?.fromMap) {
+                navigate('/main');
+              } else {
+                navigate(-1);
+              }
+            }}
+            className="flex size-12 shrink-0 items-center justify-center text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
           <h1 className="flex-1 text-center text-lg font-bold">업로드: 여행 기록</h1>
           <div className="w-10"></div>
@@ -548,29 +759,64 @@ const UploadScreen = () => {
                 </button>
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.images.map((image, index) => (
-                      <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
-                        <img src={image} alt={`preview-${index}`} className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => setFormData(prev => ({
-                            ...prev,
-                            images: prev.images.filter((_, i) => i !== index),
-                            imageFiles: prev.imageFiles.filter((_, i) => i !== index)
-                          }))}
-                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1"
-                        >
-                          <span className="material-symbols-outlined text-base">close</span>
-                        </button>
-                      </div>
-                    ))}
+                  {/* 첫 번째 사진을 크게 강조 */}
+                  <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden shadow-lg border-2 border-primary/20">
+                    <img 
+                      src={formData.images[0]} 
+                      alt="main-preview" 
+                      className="w-full h-full object-cover" 
+                    />
                     <button
-                      onClick={() => setShowPhotoOptions(true)}
-                      className="aspect-square rounded-lg border-2 border-dashed border-subtle-light dark:border-subtle-dark flex items-center justify-center hover:border-primary transition-colors"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        images: prev.images.filter((_, i) => i !== 0),
+                        imageFiles: prev.imageFiles.filter((_, i) => i !== 0)
+                      }))}
+                      className="absolute top-2 right-2 bg-black/70 text-white rounded-full p-2 hover:bg-black/90 transition-colors"
                     >
-                      <span className="material-symbols-outlined text-4xl text-primary">add</span>
+                      <span className="material-symbols-outlined text-lg">close</span>
                     </button>
                   </div>
+                  
+                  {/* 나머지 사진들 (2개 이상일 때만 표시) */}
+                  {formData.images.length > 1 && (
+                    <div className="grid grid-cols-4 gap-2">
+                      {formData.images.slice(1).map((image, index) => (
+                        <div key={index + 1} className="relative aspect-square rounded-lg overflow-hidden border border-subtle-light dark:border-subtle-dark">
+                          <img src={image} alt={`preview-${index + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index + 1),
+                              imageFiles: prev.imageFiles.filter((_, i) => i !== index + 1)
+                            }))}
+                            className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1"
+                          >
+                            <span className="material-symbols-outlined text-sm">close</span>
+                          </button>
+                        </div>
+                      ))}
+                      {formData.images.length < 10 && (
+                        <button
+                          onClick={() => setShowPhotoOptions(true)}
+                          className="aspect-square rounded-lg border-2 border-dashed border-subtle-light dark:border-subtle-dark flex items-center justify-center hover:border-primary transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-2xl text-primary">add</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* 사진이 1개일 때 추가 버튼 */}
+                  {formData.images.length === 1 && (
+                    <button
+                      onClick={() => setShowPhotoOptions(true)}
+                      className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-subtle-light dark:border-subtle-dark flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-4xl text-primary">add</span>
+                      <span className="text-sm font-medium text-text-subtle-light dark:text-text-subtle-dark">사진 추가</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -629,7 +875,7 @@ const UploadScreen = () => {
               </label>
               
               {loadingAITags && (
-                <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="mt-3 p-3 bg-gradient-to-r from-primary-soft to-accent-soft dark:from-primary/20 dark:to-accent/20 rounded-lg border border-primary/20 dark:border-primary/40">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
@@ -682,7 +928,7 @@ const UploadScreen = () => {
                       <button
                         key={tag}
                         onClick={() => addAutoTag(tag)}
-                        className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 hover:from-primary/20 hover:to-primary/10 py-2 px-4 text-sm font-semibold text-purple-700 dark:text-purple-300 hover:text-primary dark:hover:text-orange-300 transition-all border-2 border-purple-200 dark:border-purple-700 hover:border-primary hover:scale-105 active:scale-95 shadow-sm"
+                        className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary-soft to-accent-soft dark:from-primary/30 dark:to-accent/30 hover:from-primary/20 hover:to-accent/20 py-2 px-4 text-sm font-semibold text-primary dark:text-primary-soft hover:text-primary-dark dark:hover:text-accent transition-all border-2 border-primary/30 dark:border-primary/50 hover:border-primary hover:scale-105 active:scale-95 shadow-sm"
                       >
                         <span>{tag}</span>
                         <span className="material-symbols-outlined text-base">add_circle</span>
@@ -720,10 +966,10 @@ const UploadScreen = () => {
 
             <div>
               <label className="flex flex-col">
-                <p className="text-base font-medium pb-2">개인 노트</p>
+                <p className="text-base font-medium pb-2">메모 (선택)</p>
                 <textarea
                   className="form-textarea w-full rounded-lg border border-subtle-light dark:border-subtle-dark bg-background-light dark:bg-background-dark focus:border-primary focus:ring-0 p-4 text-base font-normal placeholder:text-placeholder-light dark:placeholder:text-placeholder-dark"
-                  placeholder="내용을 입력하세요"
+                  placeholder="지금 이곳이 어떤지(분위기, 사람, 날씨 등)를 간단히 적어주세요"
                   rows="5"
                   value={formData.note}
                   onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
@@ -832,7 +1078,7 @@ const UploadScreen = () => {
             <div className="w-full max-w-sm transform rounded-3xl bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-zinc-800 dark:to-zinc-900 p-8 shadow-2xl border-4 border-primary animate-scale-up">
               <div className="flex justify-center mb-6">
                 <div className="relative">
-                  <div className="flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-yellow-400 via-orange-400 to-orange-500 shadow-2xl">
+                  <div className="flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-primary via-primary to-accent shadow-2xl">
                     <span className="text-6xl">{earnedBadge.icon || '🏆'}</span>
                   </div>
                   <div className="absolute inset-0 rounded-full bg-yellow-400/40 animate-ping"></div>
@@ -852,7 +1098,7 @@ const UploadScreen = () => {
               
               <div className="flex items-center justify-center gap-3 mb-4">
                 <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                  earnedBadge.difficulty === '상' ? 'bg-purple-500 text-white' :
+                  earnedBadge.difficulty === '상' ? 'bg-primary-dark text-white' :
                   earnedBadge.difficulty === '중' ? 'bg-blue-500 text-white' :
                   'bg-green-500 text-white'
                 }`}>
@@ -895,6 +1141,7 @@ const UploadScreen = () => {
             </div>
           </div>
         )}
+
       </div>
 
       <BottomNavigation />

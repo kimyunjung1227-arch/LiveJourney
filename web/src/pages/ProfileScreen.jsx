@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNavigation from '../components/BottomNavigation';
@@ -6,7 +6,7 @@ import { getUnreadCount } from '../utils/notifications';
 import { getEarnedBadges } from '../utils/badgeSystem';
 import { getUserLevel } from '../utils/levelSystem';
 import { filterRecentPosts } from '../utils/timeUtils';
-import { getUserDailyTitle } from '../utils/dailyTitleSystem';
+import { getCoordinatesByLocation } from '../utils/regionLocationMapping';
 
 const ProfileScreen = () => {
   const navigate = useNavigate();
@@ -21,31 +21,55 @@ const ProfileScreen = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [activeTab, setActiveTab] = useState('my'); // 'my' | 'map' | 'timeline'
-  const [dailyTitle, setDailyTitle] = useState(null);
+  
+  // 지도 관련
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+  const markersRef = useRef([]);
+  const [mapLoading, setMapLoading] = useState(true);
 
   useEffect(() => {
     // localStorage에서 사용자 정보 로드
     const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
     setUser(savedUser);
 
-    // 24시간 타이틀 로드
-    if (savedUser?.id) {
-      const title = getUserDailyTitle(savedUser.id);
-      if (title) {
-        console.log('👑 오늘의 타이틀:', title.name);
-      }
-      setDailyTitle(title);
-    }
-
     // 획득한 뱃지 로드
     const badges = getEarnedBadges();
     setEarnedBadges(badges);
     console.log('🏆 프로필 화면 - 획득한 뱃지 로드:', badges.length);
 
-    // 대표 뱃지 로드
-    const savedRepBadge = localStorage.getItem('representativeBadge');
-    if (savedRepBadge) {
-      const repBadge = JSON.parse(savedRepBadge);
+    // 대표 뱃지 로드 (반드시 획득한 뱃지 중에서 선택)
+    const userId = savedUser?.id;
+    let savedRepBadgeJson = userId 
+      ? localStorage.getItem(`representativeBadge_${userId}`) || localStorage.getItem('representativeBadge')
+      : localStorage.getItem('representativeBadge');
+
+    let repBadge = null;
+    if (savedRepBadgeJson) {
+      try {
+        repBadge = JSON.parse(savedRepBadgeJson);
+      } catch {
+        repBadge = null;
+      }
+    }
+
+    // 저장된 대표 뱃지가 있지만, 현재 획득한 뱃지 목록에 없으면 무효 처리
+    if (repBadge && !badges.some(b => b.name === repBadge.name)) {
+      repBadge = null;
+    }
+
+    // 대표 뱃지가 없고, 획득한 뱃지가 있다면 그 안에서 하나를 대표로 선택
+    if (!repBadge && badges && badges.length > 0) {
+      let badgeIndex = 0;
+      if (userId) {
+        const hash = userId.toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        badgeIndex = hash % badges.length;
+      }
+      repBadge = badges[badgeIndex];
+      localStorage.setItem(`representativeBadge_${userId}`, JSON.stringify(repBadge));
+    }
+
+    if (repBadge) {
       setRepresentativeBadge(repBadge);
     }
 
@@ -56,8 +80,6 @@ const ProfileScreen = () => {
 
     // 내가 업로드한 게시물 로드 (영구 보관 - 필터링 없음!)
     const uploadedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-    
-    const userId = savedUser.id;
     const userPosts = uploadedPosts.filter(post => post.userId === userId);
     
     console.log('📊 프로필 화면 - 내 게시물 로드 (영구 보관)');
@@ -77,11 +99,27 @@ const ProfileScreen = () => {
 
     // 게시물 업데이트 이벤트 리스너
     const handlePostsUpdate = () => {
-      const updatedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
-      // 프로필에서는 필터링 없이 모든 내 게시물 표시
-      const updatedUserPosts = updatedPosts.filter(post => post.userId === userId);
-      console.log('🔄 게시물 업데이트 (영구 보관):', updatedUserPosts.length);
-      setMyPosts(updatedUserPosts);
+      console.log('🔄 프로필 화면 - 게시물 업데이트 이벤트 수신');
+      setTimeout(() => {
+        const updatedPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
+        // 프로필에서는 필터링 없이 모든 내 게시물 표시
+        const updatedUserPosts = updatedPosts.filter(post => {
+          const postUserId = post.userId || 
+                            (typeof post.user === 'string' ? post.user : post.user?.id) ||
+                            post.user;
+          return postUserId === userId;
+        });
+        console.log('🔄 게시물 업데이트 (영구 보관):', {
+          전체게시물: updatedPosts.length,
+          내게시물: updatedUserPosts.length,
+          사용자ID: userId
+        });
+        setMyPosts(updatedUserPosts);
+        
+        // 레벨 정보도 업데이트
+        const updatedLevelInfo = getUserLevel();
+        setLevelInfo(updatedLevelInfo);
+      }, 100);
     };
 
     // 뱃지 업데이트 이벤트 리스너
@@ -112,6 +150,382 @@ const ProfileScreen = () => {
       window.removeEventListener('levelUp', handleLevelUpdate);
     };
   }, []);
+
+  // 지도 초기화 및 마커 표시
+  const initMap = useCallback(() => {
+    console.log('🗺️ 지도 초기화 시작', { 
+      kakaoLoaded: !!window.kakao, 
+      mapRefExists: !!mapRef.current, 
+      activeTab, 
+      postsCount: myPosts.length 
+    });
+
+    if (!window.kakao || !window.kakao.maps) {
+      console.log('⏳ Kakao Map API 로딩 대기...');
+      setTimeout(initMap, 100);
+      return;
+    }
+
+    if (!mapRef.current) {
+      console.log('⏳ 지도 컨테이너 대기...');
+      setTimeout(initMap, 100);
+      return;
+    }
+
+    if (activeTab !== 'map') {
+      console.log('⏸️ 지도 탭이 아님, 초기화 중단');
+      return;
+    }
+
+    try {
+      // 기존 마커 제거
+      markersRef.current.forEach(markerData => {
+        if (markerData.overlay) {
+          markerData.overlay.setMap(null);
+        }
+        if (markerData.marker) {
+          markerData.marker.setMap(null);
+        }
+      });
+      markersRef.current = [];
+
+      // 기존 지도 인스턴스 확인 (재사용 가능하면 재사용)
+      // innerHTML 사용하지 않음 - React DOM 충돌 방지
+
+      // 지도 컨테이너 가져오기 (innerHTML 사용하지 않음 - React DOM 충돌 방지)
+      const container = mapRef.current;
+
+      // 게시물이 있으면 첫 번째 게시물 위치로, 없으면 서울로
+      let centerLat = 37.5665;
+      let centerLng = 126.9780;
+      let level = 6;
+
+      if (myPosts.length > 0) {
+        const firstPost = myPosts[0];
+        const coords = firstPost.coordinates || getCoordinatesByLocation(firstPost.detailedLocation || firstPost.location);
+        if (coords) {
+          centerLat = coords.lat;
+          centerLng = coords.lng;
+          level = 5;
+          console.log('📍 첫 게시물 위치로 지도 중심 설정:', coords);
+        }
+      }
+
+      // 지도 컨테이너 크기 확인
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        console.log('⚠️ 지도 컨테이너 크기가 0입니다. 재시도...');
+        setTimeout(initMap, 200);
+        return;
+      }
+
+      console.log('✅ 지도 생성 시작:', { centerLat, centerLng, level, containerSize: { width: container.offsetWidth, height: container.offsetHeight } });
+
+      // 기존 지도 인스턴스가 있으면 재사용, 없으면 새로 생성
+      let map = mapInstance.current;
+      
+      if (!map) {
+        // 지도 생성
+        map = new window.kakao.maps.Map(container, {
+          center: new window.kakao.maps.LatLng(centerLat, centerLng),
+          level: level
+        });
+        mapInstance.current = map;
+      } else {
+        // 기존 지도 재사용 - 중심점과 레벨만 업데이트
+        map.setCenter(new window.kakao.maps.LatLng(centerLat, centerLng));
+        map.setLevel(level);
+      }
+      
+      console.log('✅ 지도 인스턴스 생성 완료');
+      
+      // 지도가 완전히 로드될 때까지 대기
+      const tilesLoadedHandler = () => {
+        console.log('✅ 지도 타일 로드 완료');
+        setMapLoading(false);
+        // 지도 로드 후 마커 생성
+        createMarkersAfterMapLoad(map);
+      };
+      
+      window.kakao.maps.event.addListener(map, 'tilesloaded', tilesLoadedHandler);
+      
+      // 타임아웃 설정 (지도가 로드되지 않아도 진행)
+      setTimeout(() => {
+        console.log('⏰ 지도 로드 타임아웃, 마커 생성 진행');
+        setMapLoading(false);
+        // 타임아웃 후에도 마커 생성 시도
+        if (markersRef.current.length === 0) {
+          createMarkersAfterMapLoad(map);
+        }
+      }, 2000);
+      
+      // 즉시 마커 생성 시도 (지도가 이미 로드된 경우)
+      setTimeout(() => {
+        if (markersRef.current.length === 0) {
+          createMarkersAfterMapLoad(map);
+        }
+      }, 500);
+
+      // 마커 생성 함수 (지도 로드 후 호출)
+      const createMarkersAfterMapLoad = (map) => {
+        console.log('📍 마커 생성 시작:', myPosts.length);
+        
+        // 기존 마커 제거
+        markersRef.current.forEach(markerData => {
+          if (markerData.overlay) {
+            markerData.overlay.setMap(null);
+          }
+          if (markerData.marker) {
+            markerData.marker.setMap(null);
+          }
+        });
+        markersRef.current = [];
+        
+        const bounds = new window.kakao.maps.LatLngBounds();
+        let hasValidMarker = false;
+
+        // 기본 마커 생성 함수 (먼저 정의)
+        const createDefaultMarker = (post, index, position, map) => {
+          const marker = new window.kakao.maps.Marker({
+            position: position,
+            map: map
+          });
+
+          const infoWindow = new window.kakao.maps.InfoWindow({
+            content: `
+              <div style="padding: 12px; min-width: 200px; max-width: 300px;">
+                <div style="font-weight: bold; margin-bottom: 4px; font-size: 14px;">${post.location || '여행지'}</div>
+                ${post.note ? `<div style="font-size: 12px; color: #666; margin-top: 4px;">${post.note}</div>` : ''}
+              </div>
+            `,
+            removable: true
+          });
+
+          window.kakao.maps.event.addListener(marker, 'click', () => {
+            navigate(`/post/${post.id}`, {
+              state: {
+                post: post,
+                allPosts: myPosts,
+                currentPostIndex: index
+              }
+            });
+          });
+
+          window.kakao.maps.event.addListener(marker, 'mouseover', () => {
+            infoWindow.open(map, marker);
+          });
+
+          window.kakao.maps.event.addListener(marker, 'mouseout', () => {
+            infoWindow.close();
+          });
+
+          markersRef.current.push({ marker: marker, overlay: null, post: post });
+          hasValidMarker = true;
+        };
+
+        // 마커 생성 함수 (MapScreen과 동일한 스타일)
+        const createMarker = (post, index, map, bounds) => {
+          const coords = post.coordinates || getCoordinatesByLocation(post.detailedLocation || post.location);
+          if (!coords) return;
+
+          const position = new window.kakao.maps.LatLng(coords.lat, coords.lng);
+          bounds.extend(position);
+
+          // 모든 경우에 이미지 마커 사용 (blob URL 포함) - MapScreen과 동일
+          const imageUrl = post.images?.[0] || post.imageUrl || post.image;
+          
+          const el = document.createElement('div');
+          el.innerHTML = `
+            <button 
+              class="pin-btn relative w-12 h-12 border-3 border-white shadow-lg rounded-md overflow-hidden hover:scale-110 transition-all duration-200 cursor-pointer" 
+              style="z-index: ${index}" 
+              data-post-id="${post.id}"
+              data-post-index="${index}"
+            >
+              <img 
+                class="w-full h-full object-cover" 
+                src="${imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iNCIgZmlsbD0iI0YzRjRGNiIvPgo8cGF0aCBkPSJNMjQgMTZDMjAgMTYgMTcgMTkgMTcgMjNDMTcgMjcgMjAgMzAgMjQgMzBDMjggMzAgMzEgMjcgMzEgMjNDMzEgMTkgMjggMTYgMjQgMTZaIiBmaWxsPSIjOUI5Q0E1Ii8+CjxwYXRoIGQ9Ik0yNCAzMkMyMCAzMiAxNyAyOSAxNyAyNUMxNyAyMSAyMCAxOCAyNCAxOEMyOCAxOCAzMSAyMSAzMSAyNUMzMSAyOSAyOCAzMiAyNCAzMloiIGZpbGw9IiM5QjlDQTUiLz4KPC9zdmc+'} 
+                alt="${post.location || '여행지'}"
+                onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iNCIgZmlsbD0iI0YzRjRGNiIvPgo8cGF0aCBkPSJNMjQgMTZDMjAgMTYgMTcgMTkgMTcgMjNDMTcgMjcgMjAgMzAgMjQgMzBDMjggMzAgMzEgMjcgMzEgMjNDMzEgMTkgMjggMTYgMjQgMTZaIiBmaWxsPSIjOUI5Q0E1Ii8+CjxwYXRoIGQ9Ik0yNCAzMkMyMCAzMiAxNyAyOSAxNyAyNUMxNyAyMSAyMCAxOCAyNCAxOEMyOCAxOCAzMSAyMSAzMSAyNUMzMSAyOSAyOCAzMiAyNCAzMloiIGZpbGw9IiM5QjlDQTUiLz4KPC9zdmc+';"
+              />
+            </button>
+          `;
+
+          // 클릭 이벤트 핸들러
+          const button = el.querySelector('button');
+          if (button) {
+            button.addEventListener('click', () => {
+              navigate(`/post/${post.id}`, {
+                state: {
+                  post: post,
+                  allPosts: myPosts,
+                  currentPostIndex: index
+                }
+              });
+            });
+
+            button.addEventListener('mouseenter', () => {
+              button.style.transform = 'scale(1.1)';
+            });
+
+            button.addEventListener('mouseleave', () => {
+              button.style.transform = 'scale(1)';
+            });
+          }
+
+          // CustomOverlay 생성
+          const overlay = new window.kakao.maps.CustomOverlay({
+            position: position,
+            content: el,
+            yAnchor: 1,
+            zIndex: index
+          });
+
+          overlay.setMap(map);
+
+          // 인포윈도우 생성
+          const infoWindow = new window.kakao.maps.InfoWindow({
+            content: `
+              <div style="padding: 12px; min-width: 200px; max-width: 300px;">
+                ${imageUrl ? `
+                  <img 
+                    src="${imageUrl}" 
+                    alt="${post.location || '여행지'}"
+                    style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;"
+                    onerror="this.style.display='none'"
+                  />
+                ` : ''}
+                <div style="font-weight: bold; margin-bottom: 4px; font-size: 14px;">${post.location || '여행지'}</div>
+                ${post.note ? `<div style="font-size: 12px; color: #666; margin-top: 4px;">${post.note}</div>` : ''}
+              </div>
+            `,
+            removable: true
+          });
+
+          // 임시 마커 (인포윈도우 표시용)
+          const tempMarker = new window.kakao.maps.Marker({ 
+            position: position
+          });
+
+          // 마우스오버 이벤트
+          if (button) {
+            button.addEventListener('mouseenter', () => {
+              infoWindow.open(map, tempMarker);
+            });
+
+            button.addEventListener('mouseleave', () => {
+              infoWindow.close();
+            });
+          }
+
+          markersRef.current.push({ 
+            id: post.id, 
+            marker: null, 
+            overlay: overlay, 
+            post: post, 
+            element: el.firstChild 
+          });
+          hasValidMarker = true;
+        };
+
+        // 모든 게시물에 대해 마커 생성
+        myPosts.forEach((post, index) => {
+          createMarker(post, index, map, bounds);
+        });
+
+        // 마커 생성 완료 후 지도 범위 조정
+        setTimeout(() => {
+          if (markersRef.current.length > 0) {
+            const validBounds = new window.kakao.maps.LatLngBounds();
+            markersRef.current.forEach(markerData => {
+              if (markerData.overlay) {
+                const position = markerData.overlay.getPosition();
+                validBounds.extend(position);
+              } else if (markerData.marker) {
+                const position = markerData.marker.getPosition();
+                validBounds.extend(position);
+              }
+            });
+            
+            if (markersRef.current.length > 1) {
+              map.setBounds(validBounds);
+              console.log('✅ 지도 범위 조정 완료 (여러 마커)');
+            } else if (markersRef.current.length === 1) {
+              // 마커가 하나일 때는 해당 위치로 이동
+              const firstMarker = markersRef.current[0];
+              if (firstMarker.overlay) {
+                map.setCenter(firstMarker.overlay.getPosition());
+                map.setLevel(5);
+              } else if (firstMarker.marker) {
+                map.setCenter(firstMarker.marker.getPosition());
+                map.setLevel(5);
+              }
+              console.log('✅ 지도 중심 이동 완료 (단일 마커)');
+            }
+          }
+        }, 500);
+      };
+    } catch (error) {
+      console.error('지도 초기화 오류:', error);
+      setMapLoading(false);
+    }
+  }, [myPosts, activeTab, navigate]);
+
+  // 탭 변경 시 지도 초기화
+  useEffect(() => {
+    if (activeTab === 'map') {
+      console.log('🗺️ 여행지도 탭 활성화');
+      setMapLoading(true);
+      
+      // DOM이 완전히 렌더링된 후 지도 초기화
+      const initTimer = setTimeout(() => {
+        console.log('⏰ 지도 초기화 타이머 실행');
+        if (mapRef.current) {
+          console.log('✅ mapRef 준비됨, 지도 초기화 시작');
+          initMap();
+        } else {
+          console.log('⚠️ mapRef 아직 준비 안됨, 재시도...');
+          // mapRef가 아직 준비되지 않았으면 다시 시도
+          const retryTimer = setTimeout(() => {
+            if (mapRef.current) {
+              console.log('✅ mapRef 재시도 성공, 지도 초기화');
+              initMap();
+            } else {
+              console.error('❌ mapRef를 찾을 수 없습니다');
+              setMapLoading(false);
+            }
+          }, 500);
+          
+          return () => clearTimeout(retryTimer);
+        }
+      }, 500);
+      
+      return () => {
+        clearTimeout(initTimer);
+      };
+    } else {
+      // 다른 탭으로 전환 시 지도 정리
+      console.log('🗑️ 다른 탭으로 전환, 지도 정리');
+      if (mapInstance.current) {
+        // 마커 제거
+        markersRef.current.forEach(markerData => {
+          try {
+            if (markerData.overlay) {
+              markerData.overlay.setMap(null);
+            }
+            if (markerData.marker) {
+              markerData.marker.setMap(null);
+            }
+          } catch (error) {
+            console.warn('마커 제거 오류 (무시):', error);
+          }
+        });
+        markersRef.current = [];
+        // 지도 인스턴스는 유지 (다음 탭 전환 시 재사용 가능)
+        // mapInstance.current = null; // 주석 처리: React DOM 충돌 방지
+      }
+      setMapLoading(false);
+    }
+  }, [activeTab, myPosts, initMap]);
 
   const handleLogout = () => {
     // 로그아웃 플래그 설정
@@ -169,7 +583,11 @@ const ProfileScreen = () => {
 
   // 대표 뱃지 선택
   const selectRepresentativeBadge = (badge) => {
-    localStorage.setItem('representativeBadge', JSON.stringify(badge));
+    const userId = user?.id;
+    if (userId) {
+      localStorage.setItem(`representativeBadge_${userId}`, JSON.stringify(badge));
+    }
+    localStorage.setItem('representativeBadge', JSON.stringify(badge)); // 호환성 유지
     setRepresentativeBadge(badge);
     setShowBadgeSelector(false);
     
@@ -183,7 +601,11 @@ const ProfileScreen = () => {
 
   // 대표 뱃지 제거
   const removeRepresentativeBadge = () => {
-    localStorage.removeItem('representativeBadge');
+    const userId = user?.id;
+    if (userId) {
+      localStorage.removeItem(`representativeBadge_${userId}`);
+    }
+    localStorage.removeItem('representativeBadge'); // 호환성 유지
     setRepresentativeBadge(null);
     
     const updatedUser = { ...user, representativeBadge: null };
@@ -213,16 +635,16 @@ const ProfileScreen = () => {
         <header className="screen-header bg-white dark:bg-gray-900 flex items-center p-4 justify-between">
           <button 
             onClick={() => navigate('/main')}
-            className="text-text-primary-light dark:text-text-primary-dark"
+            className="flex size-12 shrink-0 items-center justify-center text-text-primary-light dark:text-text-primary-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
           <h1 className="text-text-primary-light dark:text-text-primary-dark text-base font-semibold">프로필</h1>
           <button 
             onClick={() => navigate('/settings')}
-            className="text-text-primary-light dark:text-text-primary-dark"
+            className="flex size-12 shrink-0 items-center justify-center text-text-primary-light dark:text-text-primary-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined">settings</span>
+            <span className="material-symbols-outlined text-2xl">settings</span>
           </button>
         </header>
 
@@ -254,8 +676,10 @@ const ProfileScreen = () => {
                 </h2>
                 {/* 대표 뱃지 */}
                 {representativeBadge && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-primary/20 to-orange-400/20 rounded-full border-2 border-primary/30">
-                    <span style={{ fontSize: '16px' }}>{representativeBadge.icon}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-primary-soft to-accent-soft rounded-full border-2 border-primary/30">
+                    <span className="text-base leading-none" role="img" aria-label={representativeBadge.name}>
+                      {representativeBadge.icon || '🏆'}
+                    </span>
                     <span className="text-xs font-bold text-primary">{representativeBadge.name}</span>
                   </div>
                 )}
@@ -276,7 +700,7 @@ const ProfileScreen = () => {
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-primary to-orange-400 h-2 rounded-full transition-all duration-500"
+                      className="bg-gradient-to-r from-primary to-accent h-2 rounded-full transition-all duration-500"
                       style={{ width: `${levelInfo.progress}%` }}
                     ></div>
                   </div>
@@ -337,7 +761,7 @@ const ProfileScreen = () => {
                 onClick={() => setShowBadgeSelector(true)}
                 className="w-full text-left"
               >
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-orange-400/10 rounded-xl border-2 border-primary/30 hover:border-primary/50 transition-all">
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary-soft to-accent-soft rounded-xl border-2 border-primary/30 hover:border-primary/50 transition-all">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-primary text-2xl">military_tech</span>
                     <div>
@@ -349,7 +773,9 @@ const ProfileScreen = () => {
                   </div>
                   {representativeBadge && (
                     <div className="flex items-center gap-2">
-                      <span style={{ fontSize: '28px' }}>{representativeBadge.icon}</span>
+                      <span className="text-3xl leading-none" role="img" aria-label={representativeBadge.name}>
+                        {representativeBadge.icon || '🏆'}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -414,9 +840,9 @@ const ProfileScreen = () => {
           {myPosts.length > 0 && (() => {
             const totalLikes = myPosts.reduce((sum, post) => sum + (post.likes || post.likeCount || 0), 0);
             return (
-              <div className="mb-4 px-4 py-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-200 dark:border-purple-700 shadow-sm">
+              <div className="mb-4 px-4 py-4 bg-gradient-to-r from-primary-soft to-accent-soft dark:from-primary/20 dark:to-accent/20 rounded-2xl border-2 border-primary/20 dark:border-primary/40 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center shadow-lg">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
                     <span className="material-symbols-outlined text-white text-2xl">favorite</span>
                   </div>
                   <div className="flex-1">
@@ -430,27 +856,6 @@ const ProfileScreen = () => {
             );
           })()}
 
-          {/* 여행 통계 */}
-          {myPosts.length > 0 && (
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-primary dark:text-orange-300">{myPosts.length}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">총 사진</div>
-              </div>
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
-                  {new Set(myPosts.map(p => p.location)).size}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">방문 지역</div>
-              </div>
-              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-300">
-                  {new Set(myPosts.map(p => p.category)).size}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">카테고리</div>
-              </div>
-            </div>
-          )}
 
           {/* 편집 버튼 (내 사진 탭에서만) */}
           {activeTab === 'my' && myPosts.length > 0 && (
@@ -604,41 +1009,20 @@ const ProfileScreen = () => {
               ) : (
                 <div>
                   {/* 지도 영역 */}
-                  <div id="travel-map" className="w-full h-96 rounded-xl overflow-hidden mb-4 bg-gray-100 dark:bg-gray-800">
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <div className="text-center">
-                        <span className="material-symbols-outlined text-5xl mb-2 block">location_on</span>
-                        <p className="text-sm">지도를 불러오는 중...</p>
-            </div>
-                    </div>
-
-          {/* 오늘의 타이틀 영역 */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                오늘의 타이틀
-              </h2>
-            </div>
-            {dailyTitle ? (
-              <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 border border-amber-300 dark:border-amber-600 shadow-sm">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-900 shadow-md">
-                  <span className="text-xl">{dailyTitle.icon || '👑'}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                    {dailyTitle.name}
-                  </span>
-                  <span className="text-xs text-amber-800/80 dark:text-amber-200/80">
-                    {dailyTitle.description || '오늘 하루 동안 유지되는 명예 타이틀입니다.'}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="px-3 py-3 rounded-2xl bg-gray-50 dark:bg-gray-800/60 border border-dashed border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400">
-                아직 획득한 오늘의 타이틀이 없습니다. 오늘 현장 정보를 공유하면 특별한 타이틀을 받을 수 있어요.
-              </div>
-            )}
-          </div>
+                  <div 
+                    ref={mapRef}
+                    id="travel-map" 
+                    className="w-full h-96 rounded-xl overflow-hidden mb-4 bg-gray-100 dark:bg-gray-800"
+                    style={{ minHeight: '384px', position: 'relative' }}
+                  >
+                    {mapLoading && (
+                      <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-gray-800 z-10">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                          <p className="text-sm">지도를 불러오는 중...</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 지역별 사진 수 */}
@@ -728,9 +1112,12 @@ const ProfileScreen = () => {
                             >
                               <div className="aspect-square relative overflow-hidden rounded-lg">
                                 <img
-                                  src={post.imageUrl || post.images?.[0]}
+                                  src={post.imageUrl || post.images?.[0] || 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80'}
                                   alt={post.location}
                                   className="w-full h-full object-cover group-hover:scale-110 transition-all duration-300"
+                                  onError={(e) => {
+                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1524222717473-730000096953?w=800&auto=format&fit=crop&q=80';
+                                  }}
                                 />
                                 {/* 카테고리 아이콘 */}
                                 <div className="absolute top-2 left-2">
@@ -795,15 +1182,17 @@ const ProfileScreen = () => {
                     onClick={() => selectRepresentativeBadge(badge)}
                     className={`p-4 rounded-xl border-2 transition-all ${
                       representativeBadge?.name === badge.name
-                        ? 'bg-gradient-to-br from-primary/20 to-orange-400/20 border-primary shadow-lg'
+                        ? 'bg-gradient-to-br from-primary/20 to-accent/20 border-primary shadow-lg'
                         : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-primary/50'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <span style={{ fontSize: '48px' }}>{badge.icon}</span>
+                      <span className="text-5xl leading-none" role="img" aria-label={badge.name}>
+                        {badge.icon || '🏆'}
+                      </span>
                       <p className="text-sm font-bold text-center">{badge.name}</p>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        badge.difficulty === '상' ? 'bg-purple-500 text-white' :
+                        badge.difficulty === '상' ? 'bg-primary-dark text-white' :
                         badge.difficulty === '중' ? 'bg-blue-500 text-white' :
                         'bg-green-500 text-white'
                       }`}>

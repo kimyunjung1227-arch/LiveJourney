@@ -50,14 +50,15 @@ const MockDataLoader = () => {
   }, []);
 
   useEffect(() => {
-    // Mock 데이터 자동 생성 비활성화 - 완전 초기 상태
-    console.log('🚫 Mock 데이터 자동 생성 비활성화');
-    console.log('📭 완전히 깨끗한 초기 상태입니다.');
-    
     const existingPosts = JSON.parse(localStorage.getItem('uploadedPosts') || '[]');
     console.log(`📊 현재 게시물: ${existingPosts.length}개`);
     
-    if (existingPosts.length > 0) {
+    // 프로덕션(배포) 환경에서는 첫 접속 시 데모용 Mock 데이터 자동 생성
+    if (import.meta.env.MODE === 'production' && existingPosts.length === 0) {
+      console.log('🌱 프로덕션 최초 접속 - 데모용 Mock 데이터 자동 생성');
+      const result = seedMockData(200); // 한국 전역 사진 + 여러 사용자
+      setStats(result);
+    } else if (existingPosts.length > 0) {
       const currentStats = getMockDataStats();
       setStats(currentStats);
     }
@@ -152,7 +153,7 @@ const MockDataLoader = () => {
           <div className="space-y-2">
             <button
               onClick={handleRegenerateAll}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors text-sm font-semibold flex items-center justify-center gap-2 shadow-lg"
+              className="w-full bg-gradient-to-r from-primary to-accent text-white py-2 px-4 rounded-lg hover:from-primary-dark hover:to-accent-dark transition-colors text-sm font-semibold flex items-center justify-center gap-2 shadow-lg"
             >
               <span className="material-symbols-outlined text-sm">autorenew</span>
               Mock 데이터 재생성 (1000개)

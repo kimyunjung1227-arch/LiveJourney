@@ -15,6 +15,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants/styles';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
+import LiveJourneyLogo from '../components/LiveJourneyLogo';
 
 const StartScreen = () => {
   const navigation = useNavigation();
@@ -152,17 +154,21 @@ const StartScreen = () => {
   // 이메일 가입/로그인 화면
   if (showEmailForm) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => setShowEmailForm(false)}
-            style={styles.backButton}
-          >
-            <MaterialIcons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-        </View>
+      <ScreenLayout>
+        <ScreenContent>
+          <ScreenHeader>
+            <View style={styles.headerContent}>
+              <TouchableOpacity
+                onPress={() => setShowEmailForm(false)}
+                style={styles.backButton}
+              >
+                <MaterialIcons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+              </TouchableOpacity>
+            </View>
+          </ScreenHeader>
 
-        <Text style={styles.title}>회원가입/로그인</Text>
+          <ScreenBody>
+            <Text style={styles.title}>회원가입/로그인</Text>
 
         <View style={styles.toggleContainer}>
           <View style={styles.toggleWrapper}>
@@ -323,89 +329,47 @@ const StartScreen = () => {
             )}
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+          </ScreenBody>
+        </ScreenContent>
+      </ScreenLayout>
     );
   }
 
   // 메인 시작 화면 (웹과 동일)
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <ScreenLayout>
+      <ScreenContent>
+        <ScreenBody>
         <View style={styles.welcomeContainer}>
-          <Text style={styles.welcomeTitle}>환영합니다!</Text>
-          <Text style={styles.welcomeSubtitle}>
-            가장 현명한 여행을 지금 바로 시작하세요.
+          <LiveJourneyLogo size={180} showText={true} />
+          <Text style={styles.missionText}>
+            당신의 모든 여정이 스마트하고{'\n'}즐거워 지는 것을 목표로 합니다
           </Text>
         </View>
 
-        <View style={styles.socialButtonsContainer}>
+        <View style={styles.buttonsContainer}>
           {/* 테스터 계정 버튼 (개발용) */}
           {__DEV__ && (
             <TouchableOpacity
-              style={[styles.socialButton, styles.testerButton]}
+              style={styles.testerButton}
               onPress={handleTesterLogin}
               disabled={loading}
             >
-              <MaterialIcons name="bug-report" size={20} color={COLORS.textWhite} />
-              <Text style={[styles.socialButtonText, styles.testerButtonText]}>
-                테스터 계정으로 시작하기
+              <MaterialIcons name="bug-report" size={18} color="white" />
+              <Text style={styles.testerButtonText}>
+                테스터 계정으로 바로 시작
               </Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={[styles.socialButton, styles.googleButton]}
-            onPress={() => handleSocialLogin('Google')}
+            style={styles.startButton}
+            onPress={() => navigation.navigate('MainTabs')}
             disabled={loading}
           >
-            <GoogleIcon />
-            <Text style={[styles.socialButtonText, styles.googleButtonText]}>
-              Google로 계속하기
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.socialButton, styles.kakaoButton]}
-            onPress={() => handleSocialLogin('Kakao')}
-            disabled={loading}
-          >
-            <KakaoIcon />
-            <Text style={[styles.socialButtonText, styles.kakaoButtonText]}>
-              카카오로 계속하기
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.socialButton, styles.naverButton]}
-            onPress={() => handleSocialLogin('Naver')}
-            disabled={loading}
-          >
-            <NaverIcon />
-            <Text style={[styles.socialButtonText, styles.naverButtonText]}>
-              네이버로 계속하기
-            </Text>
+            <Text style={styles.startButtonText}>앱 시작하기</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>또는</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.socialButton, styles.emailButton]}
-          onPress={handleEmailClick}
-          disabled={loading}
-        >
-          <MaterialIcons name="mail" size={20} color={COLORS.primary} />
-          <Text style={[styles.socialButtonText, styles.emailButtonText]}>
-            이메일로 가입/로그인
-          </Text>
-        </TouchableOpacity>
 
         {error && (
           <View style={styles.errorContainer}>
@@ -419,8 +383,9 @@ const StartScreen = () => {
             <Text style={styles.loadingText}>로그인 중...</Text>
           </View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -581,25 +546,29 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   welcomeContainer: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: SPACING.xl,
-    marginTop: SPACING.xxl,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg, // px-6 = 24px (웹과 동일)
+    paddingVertical: SPACING.xxl, // py-12 = 48px (웹과 동일)
+    gap: SPACING.lg, // gap-6 = 24px (웹과 동일)
   },
-  welcomeTitle: {
-    fontSize: 30,
+  missionText: {
+    fontSize: 20, // text-xl = 20px (웹과 동일)
     fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  welcomeSubtitle: {
-    ...TYPOGRAPHY.body,
-    color: '#1c140d',
+    color: 'black', // text-black (웹과 동일)
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 28, // leading-relaxed (웹과 동일)
+    maxWidth: 384, // max-w-sm = 384px (웹과 동일)
+    marginTop: SPACING.sm, // mt-2 = 8px (웹과 동일)
+    paddingHorizontal: SPACING.md, // px-4 = 16px (웹과 동일)
   },
-  socialButtonsContainer: {
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
+  buttonsContainer: {
+    flexShrink: 0,
+    width: '100%',
+    paddingHorizontal: SPACING.xl, // px-8 = 32px (웹과 동일)
+    paddingBottom: SPACING.xxl, // pb-12 = 48px (웹과 동일)
+    gap: 12, // space-y-3 = 12px (웹과 동일)
   },
   socialButton: {
     flexDirection: 'row',
@@ -616,13 +585,47 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   testerButton: {
-    backgroundColor: COLORS.primary,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm, // gap-2 = 8px (웹과 동일)
+    height: 56, // h-14 = 56px (웹과 동일)
+    paddingHorizontal: 20, // px-5 = 20px (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
+    backgroundColor: COLORS.primary, // bg-gradient-to-r from-primary to-primary-dark (웹과 동일)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5, // shadow-lg (웹과 동일)
   },
   testerButtonText: {
-    color: COLORS.textWhite,
+    color: 'white', // text-white (웹과 동일)
+    fontSize: 16, // text-base = 16px (웹과 동일)
     fontWeight: 'bold',
+    letterSpacing: 0.24, // tracking-[0.015em] = 0.24px (웹과 동일)
+    lineHeight: 24, // leading-normal (웹과 동일)
+  },
+  startButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56, // h-14 = 56px (웹과 동일)
+    paddingHorizontal: 20, // px-5 = 20px (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
+    backgroundColor: COLORS.primary, // bg-primary (웹과 동일)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8, // shadow-xl (웹과 동일)
+  },
+  startButtonText: {
+    color: 'white', // text-white (웹과 동일)
+    fontSize: 18, // text-lg = 18px (웹과 동일)
+    fontWeight: 'bold',
+    letterSpacing: 0.27, // tracking-[0.015em] = 0.27px (웹과 동일)
+    lineHeight: 28, // leading-normal (웹과 동일)
   },
   googleButton: {
     backgroundColor: COLORS.backgroundLight,

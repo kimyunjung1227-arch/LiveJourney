@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
 import { filterRecentPosts, getTimeAgo } from '../utils/timeUtils';
 import { isPostLiked } from '../utils/socialInteractions';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -51,17 +52,6 @@ const PostItem = ({ item, index, onPress }) => {
         ) : (
           <View style={[regionStyles.postImage, regionStyles.postImagePlaceholder]}>
             <Ionicons name="image-outline" size={32} color={COLORS.textSubtle} />
-          </View>
-        )}
-
-        {/* 좌측 상단 카테고리 아이콘 */}
-        {item.categoryName && (
-          <View style={regionStyles.categoryIcon}>
-            <Text style={regionStyles.categoryEmoji}>
-              {item.categoryName === '개화 상황' && '🌸'}
-              {item.categoryName === '맛집 정보' && '🍜'}
-              {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-            </Text>
           </View>
         )}
 
@@ -159,11 +149,13 @@ const RegionDetailScreen = () => {
       const bloomPosts = regionPosts
         .filter(post => post.category === 'bloom')
         .map(post => ({
+          ...post, // 원본 게시물의 모든 필드 포함
           id: post.id,
           images: post.images || [],
           videos: post.videos || [],
           image: post.images?.[0] || post.videos?.[0] || post.image,
           time: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
+          timeLabel: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
           category: post.categoryName,
           categoryName: post.categoryName,
           labels: post.aiLabels,
@@ -173,17 +165,24 @@ const RegionDetailScreen = () => {
           location: post.location,
           tags: post.tags || post.aiLabels || [],
           note: post.note || post.content,
-          likes: post.likes || post.likeCount || 0
+          likes: post.likes || post.likeCount || 0,
+          user: post.user || '여행자',
+          userId: post.userId,
+          comments: post.comments || [],
+          qnaList: post.qnaList || [],
+          timestamp: post.timestamp || post.createdAt || post.time,
         }));
       
       const touristPosts = regionPosts
         .filter(post => post.category === 'landmark' || post.category === 'scenic')
         .map(post => ({
+          ...post, // 원본 게시물의 모든 필드 포함
           id: post.id,
           images: post.images || [],
           videos: post.videos || [],
           image: post.images?.[0] || post.videos?.[0] || post.image,
           time: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
+          timeLabel: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
           category: post.categoryName,
           categoryName: post.categoryName,
           labels: post.aiLabels,
@@ -193,17 +192,24 @@ const RegionDetailScreen = () => {
           location: post.location,
           tags: post.tags || post.aiLabels || [],
           note: post.note || post.content,
-          likes: post.likes || post.likeCount || 0
+          likes: post.likes || post.likeCount || 0,
+          user: post.user || '여행자',
+          userId: post.userId,
+          comments: post.comments || [],
+          qnaList: post.qnaList || [],
+          timestamp: post.timestamp || post.createdAt || post.time,
         }));
       
       const foodPosts = regionPosts
         .filter(post => post.category === 'food')
         .map(post => ({
+          ...post, // 원본 게시물의 모든 필드 포함
           id: post.id,
           images: post.images || [],
           videos: post.videos || [],
           image: post.images?.[0] || post.videos?.[0] || post.image,
           time: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
+          timeLabel: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
           category: post.categoryName,
           categoryName: post.categoryName,
           labels: post.aiLabels,
@@ -213,16 +219,23 @@ const RegionDetailScreen = () => {
           location: post.location,
           tags: post.tags || post.aiLabels || [],
           note: post.note || post.content,
-          likes: post.likes || post.likeCount || 0
+          likes: post.likes || post.likeCount || 0,
+          user: post.user || '여행자',
+          userId: post.userId,
+          comments: post.comments || [],
+          qnaList: post.qnaList || [],
+          timestamp: post.timestamp || post.createdAt || post.time,
         }));
       
       const realtimePosts = regionPosts
         .map(post => ({
+          ...post, // 원본 게시물의 모든 필드 포함
           id: post.id,
           images: post.images || [],
           videos: post.videos || [],
           image: post.images?.[0] || post.videos?.[0] || post.image,
           time: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
+          timeLabel: post.timeLabel || getTimeAgo(post.timestamp || post.createdAt || post.time),
           category: post.categoryName || '일반',
           categoryName: post.categoryName,
           labels: post.aiLabels,
@@ -232,7 +245,12 @@ const RegionDetailScreen = () => {
           location: post.location,
           tags: post.tags || post.aiLabels || [],
           note: post.note || post.content,
-          likes: post.likes || post.likeCount || 0
+          likes: post.likes || post.likeCount || 0,
+          user: post.user || '여행자',
+          userId: post.userId,
+          comments: post.comments || [],
+          qnaList: post.qnaList || [],
+          timestamp: post.timestamp || post.createdAt || post.time,
         }));
       
       setBloomPhotos(bloomPosts.slice(0, 6));
@@ -307,30 +325,34 @@ const RegionDetailScreen = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>로딩 중...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{region.name}</Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 헤더 - 웹과 동일한 구조 */}
+        <ScreenHeader>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{region.name}</Text>
+            <View style={styles.headerPlaceholder} />
+          </View>
+        </ScreenHeader>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
         {/* 날씨/교통 정보 */}
         <View style={styles.infoBar}>
           <View style={styles.infoItem}>
@@ -354,8 +376,9 @@ const RegionDetailScreen = () => {
 
         {/* 맛집 정보 */}
         {renderSection('🍜 맛집 정보', foodPhotos, 'food')}
-      </ScrollView>
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -378,25 +401,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md, // p-4
+    paddingTop: SPACING.md, // p-4
+    paddingBottom: 12, // pb-3 = 12px
+    backgroundColor: COLORS.backgroundLight, // bg-white
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#E5E7EB', // border-gray-200
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   backButton: {
-    width: 48,
+    width: 48, // size-12 = 48px
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8, // rounded-lg
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
+    fontSize: 18, // text-lg = 18px
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-content-light
+    letterSpacing: -0.27, // tracking-[-0.015em] = -0.27px
+    lineHeight: 21.6, // leading-tight
+    flex: 1,
+    textAlign: 'center',
   },
   headerPlaceholder: {
-    width: 48,
+    width: 48, // w-12 = 48px
   },
   scrollView: {
     flex: 1,
@@ -475,14 +509,14 @@ const styles = StyleSheet.create({
 const regionStyles = StyleSheet.create({
   postItem: {
     width: (SCREEN_WIDTH - SPACING.md * 3) / 2,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.md, // gap-4 = 16px
   },
   postImageContainer: {
     width: '100%',
-    aspectRatio: 4 / 5,
-    borderRadius: 12,
+    aspectRatio: 4 / 5, // aspect-[4/5]
+    borderRadius: 12, // rounded-lg
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
+    marginBottom: 12, // mb-3 = 12px
     backgroundColor: COLORS.borderLight,
     position: 'relative',
   },
@@ -495,39 +529,20 @@ const regionStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  categoryIcon: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  categoryEmoji: {
-    fontSize: 24,
-  },
   likeBadge: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    bottom: 12, // bottom-3 = 12px
+    right: 12, // right-3 = 12px
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    gap: 4, // gap-1 = 4px
+    backgroundColor: 'rgba(255,255,255,0.9)', // bg-white/90
+    paddingHorizontal: 12, // px-3 = 12px
+    paddingVertical: 6, // py-1.5 = 6px
+    borderRadius: 999, // rounded-full
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1, // shadow-md
     shadowRadius: 4,
     elevation: 3,
   },
@@ -547,18 +562,19 @@ const regionStyles = StyleSheet.create({
     gap: SPACING.xs,
   },
   locationText: {
-    fontSize: 16,
+    fontSize: 16, // text-base = 16px
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-primary-light
     flex: 1,
   },
   timeText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+    fontSize: 12, // text-xs = 12px
+    color: COLORS.textSecondary, // text-text-secondary-light
   },
   subLocationText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSecondary, // text-text-secondary-light
+    marginTop: 2, // mt-0.5 = 2px
   },
   tagsScroll: {
     marginVertical: SPACING.xs,
@@ -567,16 +583,16 @@ const regionStyles = StyleSheet.create({
     gap: SPACING.xs,
   },
   tagBadge: {
-    backgroundColor: COLORS.primary + '10',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginRight: SPACING.xs,
+    backgroundColor: COLORS.primary + '1A', // bg-primary/10
+    paddingHorizontal: 10, // px-2.5 = 10px
+    paddingVertical: 4, // py-1 = 4px
+    borderRadius: 999, // rounded-full
+    marginRight: 6, // gap-1.5 = 6px
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.primary,
+    fontSize: 12, // text-xs
+    fontWeight: '500', // font-medium
+    color: COLORS.primary, // text-primary
   },
   noteText: {
     fontSize: 14,

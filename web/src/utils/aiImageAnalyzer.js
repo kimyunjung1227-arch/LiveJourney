@@ -1,34 +1,44 @@
 // AI 이미지 분석 및 해시태그 자동 생성
 // 클라이언트 측에서 이미지를 분석하여 관련 해시태그를 생성합니다
 
-// 한국 여행 관련 키워드 데이터베이스
+// 한국 여행 관련 키워드 데이터베이스 (직관적 연상 단어 중심)
 const koreanTravelKeywords = {
-  // 자연 & 풍경
-  nature: ['자연', '풍경', '산', '바다', '강', '호수', '계곡', '폭포', '숲', '들판', '하늘', '구름', '일몰', '일출', '별'],
+  // 자연 & 풍경 (직관적 연상)
+  nature: ['자연', '풍경', '산', '바다', '강', '호수', '계곡', '폭포', '숲', '들판', '하늘', '구름', '일몰', '일출', '별', '푸른하늘', '맑은하늘', '푸른바다', '푸른숲', '푸른산'],
   
-  // 계절
-  seasons: ['봄', '여름', '가을', '겨울', '벚꽃', '단풍', '눈', '꽃'],
+  // 계절 (직관적 연상)
+  seasons: ['봄', '여름', '가을', '겨울', '벚꽃', '단풍', '눈', '꽃', '따뜻한햇살', '시원한바람', '고운꽃', '아름다운단풍', '하얀눈'],
   
-  // 음식
-  food: ['맛집', '음식', '카페', '디저트', '커피', '한식', '양식', '일식', '중식', '분식', '길거리음식', '전통음식'],
+  // 음식 (직관적 연상)
+  food: ['맛집', '음식', '카페', '디저트', '커피', '한식', '양식', '일식', '중식', '분식', '길거리음식', '전통음식', '따뜻한음식', '시원한음식', '달콤한디저트', '향긋한커피'],
   
-  // 활동
-  activities: ['여행', '나들이', '힐링', '휴식', '산책', '등산', '캠핑', '수영', '서핑', '스키', '드라이브'],
+  // 활동 (직관적 연상)
+  activities: ['여행', '나들이', '힐링', '휴식', '산책', '등산', '캠핑', '수영', '서핑', '스키', '드라이브', '편안한휴식', '즐거운여행', '힐링타임'],
   
-  // 장소 유형
-  places: ['관광지', '명소', '공원', '해변', '항구', '시장', '박물관', '미술관', '사찰', '성당', '궁궐', '한옥마을'],
+  // 장소 유형 (직관적 연상)
+  places: ['관광지', '명소', '공원', '해변', '항구', '시장', '박물관', '미술관', '사찰', '성당', '궁궐', '한옥마을', '아름다운명소', '고즈넉한곳', '활기찬곳'],
   
-  // 분위기
-  mood: ['아름다운', '평화로운', '활기찬', '낭만적인', '고즈넉한', '시원한', '따뜻한', '청량한'],
+  // 분위기 (직관적 연상 - 더 풍부하게)
+  mood: ['아름다운', '평화로운', '활기찬', '낭만적인', '고즈넉한', '시원한', '따뜻한', '청량한', '밝은', '화사한', '따스한', '상큼한', '포근한', '로맨틱한', '신선한', '깨끗한', '맑은', '푸른', '하얀', '화려한'],
+  
+  // 색상 기반 직관적 연상
+  colors: {
+    green: ['푸른', '초록', '자연', '숲', '풀', '신선한', '청량한'],
+    blue: ['파란', '하늘', '바다', '시원한', '맑은', '깨끗한', '푸른하늘', '푸른바다'],
+    red: ['빨간', '따뜻한', '활기찬', '화사한', '단풍', '가을'],
+    yellow: ['노란', '따뜻한', '밝은', '화사한', '햇살', '따스한'],
+    white: ['하얀', '깨끗한', '순수한', '눈', '구름'],
+    dark: ['어두운', '야경', '밤', '로맨틱한', '신비로운']
+  },
   
   // 지역별 특징
   regions: {
-    서울: ['도시', '야경', '쇼핑', '문화', '한강', '궁궐'],
-    부산: ['바다', '해운대', '광안리', '항구', '해산물', '야경'],
-    제주: ['섬', '바다', '오름', '한라산', '감귤', '돌하르방'],
-    강릉: ['바다', '커피', '해변', '경포대', '정동진'],
-    전주: ['한옥', '한식', '비빔밥', '전통'],
-    경주: ['역사', '문화재', '신라', '불국사', '첨성대']
+    서울: ['도시', '야경', '쇼핑', '문화', '한강', '궁궐', '활기찬도시', '화려한야경'],
+    부산: ['바다', '해운대', '광안리', '항구', '해산물', '야경', '푸른바다', '시원한바다'],
+    제주: ['섬', '바다', '오름', '한라산', '감귤', '돌하르방', '푸른바다', '아름다운섬'],
+    강릉: ['바다', '커피', '해변', '경포대', '정동진', '시원한바다', '향긋한커피'],
+    전주: ['한옥', '한식', '비빔밥', '전통', '고즈넉한', '전통적인'],
+    경주: ['역사', '문화재', '신라', '불국사', '첨성대', '고즈넉한', '역사적인']
   }
 };
 
@@ -225,11 +235,20 @@ const analyzeImageColors = async (imageFile) => {
           b = Math.floor(b / pixels);
           brightness = brightness / pixels;
           
-          // 색상 특징 분석
+          // 색상 특징 분석 (더 정교하게)
           const isGreen = g > r && g > b && g > 100; // 초록색 우세 (자연)
           const isBlue = b > r && b > g && b > 100; // 파란색 우세 (하늘, 바다)
           const isRed = r > g && r > b && r > 100; // 빨간색 우세 (단풍, 음식)
           const isYellow = r > 150 && g > 150 && b < 100; // 노란색 (가을, 음식)
+          const isWhite = r > 200 && g > 200 && b > 200; // 흰색 (눈, 구름)
+          const isPink = r > 200 && g > 150 && g < 200 && b > 150 && b < 200; // 분홍색 (벚꽃)
+          
+          // 색상 채도 계산
+          const maxColor = Math.max(r, g, b);
+          const minColor = Math.min(r, g, b);
+          const saturation = maxColor === 0 ? 0 : (maxColor - minColor) / maxColor;
+          const isVivid = saturation > 0.5; // 선명한 색상
+          const isMuted = saturation < 0.3; // 차분한 색상
           
           resolve({
             brightness: brightness / 255,
@@ -239,7 +258,12 @@ const analyzeImageColors = async (imageFile) => {
             isGreen,
             isBlue,
             isRed,
-            isYellow
+            isYellow,
+            isWhite,
+            isPink,
+            saturation,
+            isVivid,
+            isMuted
           });
         } catch (error) {
           resolve({ brightness: 0.5, isDark: false, isBright: false });
@@ -284,6 +308,7 @@ export const analyzeImageForTags = async (imageFile, location = '', existingNote
     
     // 우선순위 2: 노트 내용 분석 (사용자가 직접 입력한 내용)
     if (existingNote && existingNote.trim().length > 0) {
+      // 모든 키워드 카테고리에서 매칭
       Object.values(koreanTravelKeywords).forEach(categoryKeywords => {
         if (Array.isArray(categoryKeywords)) {
           categoryKeywords.forEach(keyword => {
@@ -293,45 +318,125 @@ export const analyzeImageForTags = async (imageFile, location = '', existingNote
           });
         }
       });
+      
+      // 색상 기반 키워드도 노트에서 찾기
+      if (koreanTravelKeywords.colors) {
+        Object.values(koreanTravelKeywords.colors).flat().forEach(keyword => {
+          if (existingNote.includes(keyword)) {
+            keywords.add(keyword);
+          }
+        });
+      }
     }
     
-    // 우선순위 3: 색상 분석 (실제 이미지 특성)
-    // 색상이 명확할 때만 추가 (임계값 강화)
+    // 우선순위 3: 색상 분석 (실제 이미지 특성) - 직관적 연상 단어 생성
     const { r, g, b } = colorAnalysis.dominantColor || { r: 128, g: 128, b: 128 };
     const colorDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(b - r));
     
-    // 색상 차이가 뚜렷한 경우만 (30 이상)
-    if (colorDiff > 30) {
-      if (colorAnalysis.isGreen && g > 120) {
+    // 색상 차이가 뚜렷한 경우 (20 이상으로 완화하여 더 많은 태그 생성)
+    if (colorDiff > 20) {
+      if (colorAnalysis.isGreen && g > 100) {
         keywords.add('자연');
         keywords.add('숲');
-      }
-      if (colorAnalysis.isBlue && b > 120) {
-        keywords.add('하늘');
-        if (location.includes('바다') || location.includes('해')) {
-          keywords.add('바다');
+        keywords.add('푸른');
+        if (g > 150) {
+          keywords.add('푸른숲');
+          keywords.add('신선한');
         }
       }
-      if (colorAnalysis.isRed && r > 150) {
+      if (colorAnalysis.isBlue && b > 100) {
+        keywords.add('하늘');
+        if (b > 150) {
+          keywords.add('푸른하늘');
+          keywords.add('맑은하늘');
+        }
+        if (location.includes('바다') || location.includes('해')) {
+          keywords.add('바다');
+          if (b > 150) {
+            keywords.add('푸른바다');
+            keywords.add('시원한바다');
+          }
+        }
+        keywords.add('시원한');
+        keywords.add('청량한');
+      }
+      if (colorAnalysis.isRed && r > 120) {
         // 빨간색 + 가을철만 단풍 추천
         const month = new Date().getMonth() + 1;
         if (month >= 9 && month <= 11) {
           keywords.add('단풍');
           keywords.add('가을');
+          keywords.add('아름다운단풍');
         } else {
           keywords.add('활기찬');
+          keywords.add('화사한');
         }
-      }
-      if (colorAnalysis.isYellow && r > 150 && g > 150) {
         keywords.add('따뜻한');
+      }
+      if (colorAnalysis.isYellow && r > 120 && g > 120) {
+        keywords.add('따뜻한');
+        keywords.add('밝은');
+        keywords.add('화사한');
+        if (r > 180 && g > 180) {
+          keywords.add('따뜻한햇살');
+          keywords.add('따스한');
+        }
       }
     }
     
-    // 우선순위 4: 밝기 분석
+    // 우선순위 4: 밝기 분석 - 직관적 연상
     if (colorAnalysis.isDark) {
       keywords.add('야경');
+      keywords.add('밤');
+      if (colorAnalysis.brightness < 0.3) {
+        keywords.add('로맨틱한');
+        keywords.add('신비로운');
+      }
     } else if (colorAnalysis.isBright) {
       keywords.add('맑은');
+      keywords.add('밝은');
+      if (colorAnalysis.brightness > 0.8) {
+        keywords.add('화사한');
+        keywords.add('따뜻한햇살');
+      }
+    } else {
+      keywords.add('편안한');
+    }
+    
+    // 색상 조합 기반 직관적 태그
+    if (colorAnalysis.isGreen && colorAnalysis.isBlue) {
+      keywords.add('자연');
+      keywords.add('시원한');
+      keywords.add('청량한');
+      keywords.add('푸른');
+    }
+    if (colorAnalysis.isRed && colorAnalysis.isYellow) {
+      keywords.add('따뜻한');
+      keywords.add('활기찬');
+      keywords.add('화사한');
+    }
+    if (colorAnalysis.isPink) {
+      keywords.add('벚꽃');
+      keywords.add('봄');
+      keywords.add('로맨틱한');
+      keywords.add('예쁜');
+    }
+    if (colorAnalysis.isWhite && colorAnalysis.brightness > 0.8) {
+      keywords.add('하얀');
+      keywords.add('깨끗한');
+      keywords.add('순수한');
+    }
+    
+    // 색상 채도 기반 직관적 태그
+    if (colorAnalysis.isVivid) {
+      keywords.add('화려한');
+      keywords.add('선명한');
+      keywords.add('생생한');
+    }
+    if (colorAnalysis.isMuted) {
+      keywords.add('차분한');
+      keywords.add('고즈넉한');
+      keywords.add('편안한');
     }
     
     // 우선순위 5: 계절 키워드 (위치/노트에 관련 내용이 있을 때만)
@@ -354,21 +459,38 @@ export const analyzeImageForTags = async (imageFile, location = '', existingNote
       filenameKeywords.slice(0, 2).forEach(kw => keywords.add(kw));
     }
     
-    // 최소 키워드가 너무 적으면 기본값 추가
+    // 최소 키워드가 너무 적으면 직관적 기본값 추가
     if (keywords.size < 3) {
       keywords.add('여행');
       if (location) {
         keywords.add('추억');
       }
+      if (colorAnalysis.isBright) {
+        keywords.add('밝은');
+      } else if (colorAnalysis.isDark) {
+        keywords.add('야경');
+      } else {
+        keywords.add('아름다운');
+      }
+    }
+    
+    // 직관적 연상 단어 추가 (분위기 키워드)
+    if (keywords.size < 6) {
+      const moodTags = ['아름다운', '편안한', '즐거운', '기억에남는'];
+      moodTags.forEach(tag => {
+        if (keywords.size < 8) {
+          keywords.add(tag);
+        }
+      });
     }
     
     // 8. AI 카테고리 자동 분류 ⭐
     const categoryResult = detectCategory(keywords, location, existingNote, colorAnalysis);
     
-    // 9. 중복 제거 및 배열 변환 (최대 8개로 제한)
+    // 9. 중복 제거 및 배열 변환 (7~8개로 제한)
     const finalTags = Array.from(keywords)
       .filter(tag => tag && tag.length >= 2)
-      .slice(0, 8);
+      .slice(0, 8); // 최대 8개, 실제로는 7~8개 범위
     
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✅ AI 분석 완료!');
@@ -407,14 +529,14 @@ export const formatAsHashtags = (tags) => {
   return tags.map(tag => tag.startsWith('#') ? tag : `#${tag}`);
 };
 
-// 추천 태그 가져오기 (카테고리별)
+// 추천 태그 가져오기 (카테고리별) - 모두 한국어 직관적 연상 단어
 export const getRecommendedTags = (category) => {
   const recommendations = {
-    all: ['여행', '풍경', '맛집', '카페', '힐링', '자연', '도시', '바다', '산', '추억'],
-    nature: ['자연', '풍경', '산', '바다', '숲', '계곡', '힐링'],
-    food: ['맛집', '음식', '카페', '디저트', '커피', '한식', '맛있는'],
-    city: ['도시', '야경', '쇼핑', '카페', '문화', '건축'],
-    activity: ['여행', '나들이', '등산', '캠핑', '드라이브', '힐링']
+    all: ['여행', '풍경', '맛집', '카페', '힐링', '자연', '도시', '바다', '산', '추억', '아름다운', '편안한', '즐거운'],
+    nature: ['자연', '풍경', '산', '바다', '숲', '계곡', '힐링', '푸른', '맑은', '시원한', '신선한'],
+    food: ['맛집', '음식', '카페', '디저트', '커피', '한식', '맛있는', '따뜻한음식', '향긋한커피', '달콤한디저트'],
+    city: ['도시', '야경', '쇼핑', '카페', '문화', '건축', '활기찬도시', '화려한야경'],
+    activity: ['여행', '나들이', '등산', '캠핑', '드라이브', '힐링', '즐거운여행', '편안한휴식']
   };
   
   return recommendations[category] || recommendations.all;

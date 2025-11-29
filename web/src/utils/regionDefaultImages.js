@@ -10,7 +10,7 @@ export const regionDefaultImages = {
   '부천': 'https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?w=800&auto=format&fit=crop', // 도시
   '안산': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
   '안양': 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&auto=format&fit=crop', // 안양천
-  '남양주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
+  '남양주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
   '화성': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 제부도
   '파주': 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop', // 헤이리
   '의정부': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
@@ -18,36 +18,36 @@ export const regionDefaultImages = {
   '시흥': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
   '김포': 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800&auto=format&fit=crop', // 한강
   '광명': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop', // 동굴
-  '광주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 남한산성
+  '광주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 남한산성
   '군포': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
   '하남': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
   '오산': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
   '이천': 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=800&auto=format&fit=crop', // 도자기
-  '안성': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
+  '안성': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
   '의왕': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&fit=crop', // 도시
   '양평': 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800&auto=format&fit=crop', // 두물머리
   '여주': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 신륵사
-  '동두천': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 소요산
+  '동두천': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 소요산
   '과천': 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?w=800&auto=format&fit=crop', // 서울대공원
   '가평': 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=800&auto=format&fit=crop', // 남이섬
-  '양주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
-  '포천': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 아트밸리
-  '연천': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // DMZ
+  '양주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
+  '포천': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 아트밸리
+  '연천': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // DMZ
   
   // 강원권
   '춘천': 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&auto=format&fit=crop', // 소양강
-  '원주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 치악산
+  '원주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 치악산
   '강릉': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&auto=format&fit=crop', // 경포대
-  '속초': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 설악산
+  '속초': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&auto=format&fit=crop', // 속초/동해
   '동해': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 추암촛대바위
-  '태백': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 태백산
+  '태백': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 태백산
   '삼척': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop', // 환선굴
-  '홍천': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
-  '횡성': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
+  '홍천': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
+  '횡성': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
   '영월': 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800&auto=format&fit=crop', // 동강
   '평창': 'https://images.unsplash.com/photo-1551524164-687a55dd1126?w=800&auto=format&fit=crop', // 스키
-  '정선': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 레일바이크
-  '철원': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // DMZ
+  '정선': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 레일바이크
+  '철원': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // DMZ
   '화천': 'https://images.unsplash.com/photo-1548177338-1da4f6b84aac?w=800&auto=format&fit=crop', // 산천어
   '양구': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 펀치볼
   '인제': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 내린천
@@ -66,13 +66,13 @@ export const regionDefaultImages = {
   '아산': 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&auto=format&fit=crop', // 현충사
   '서산': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 해미읍성
   '논산': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 관촉사
-  '계룡': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 계룡산
+  '계룡': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 계룡산
   '당진': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 왜목마을
   '금산': 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=800&auto=format&fit=crop', // 인삼
   '부여': 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&auto=format&fit=crop', // 백제
-  '서천': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 생태원
-  '청양': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 칠갑산
-  '홍성': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
+  '서천': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&auto=format&fit=crop', // 생태원/바다
+  '청양': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 칠갑산
+  '홍성': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
   '예산': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 수덕사
   '태안': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 안면도
   
@@ -80,24 +80,24 @@ export const regionDefaultImages = {
   '전주': 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&auto=format&fit=crop', // 한옥마을
   '군산': 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&auto=format&fit=crop', // 근대문화
   '익산': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 미륵사지
-  '정읍': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 내장산
+  '정읍': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 내장산
   '남원': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 광한루
   '김제': 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&auto=format&fit=crop', // 지평선
-  '완주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
-  '진안': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 마이산
-  '무주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 덕유산
-  '장수': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 자연
+  '완주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
+  '진안': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 마이산
+  '무주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 덕유산
+  '장수': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 자연
   '임실': 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=800&auto=format&fit=crop', // 치즈
   '순창': 'https://images.unsplash.com/photo-1583919860101-c7fc4f6f4f0f?w=800&auto=format&fit=crop', // 고추장
   '고창': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 고인돌
   '부안': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 변산반도
-  '광주': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 무등산
+  '광주': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 무등산
   '목포': 'https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=800&auto=format&fit=crop', // 유달산/항구
   '여수': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 여수 밤바다
   '순천': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 순천만
   '나주': 'https://images.unsplash.com/photo-1587049352846-4a222e784578?w=800&auto=format&fit=crop', // 나주배
   '광양': 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&auto=format&fit=crop', // 매화
-  '담양': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 죽녹원
+  '담양': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 죽녹원
   '곡성': 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=800&auto=format&fit=crop', // 기차마을
   '구례': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop', // 화엄사
   '고흥': 'https://images.unsplash.com/photo-1516849677043-ef67c9557e16?w=800&auto=format&fit=crop', // 우주센터
@@ -106,7 +106,7 @@ export const regionDefaultImages = {
   '장흥': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 정남진
   '강진': 'https://images.unsplash.com/photo-1610735241340-fd3229ad1d97?w=800&auto=format&fit=crop', // 청자
   '해남': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 땅끝마을
-  '영암': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop', // 월출산
+  '영암': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop', // 월출산
   '무안': 'https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=800&auto=format&fit=crop', // 공항
   '함평': 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?w=800&auto=format&fit=crop', // 나비
   '영광': 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&auto=format&fit=crop', // 백수해안도로

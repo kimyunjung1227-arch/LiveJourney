@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
 import { filterRecentPosts, getTimeAgo } from '../utils/timeUtils';
 import { isPostLiked } from '../utils/socialInteractions';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 // PostItem 컴포넌트 (DetailScreen 전용)
 const PostItem = ({ item, index, onPress }) => {
@@ -49,17 +50,6 @@ const PostItem = ({ item, index, onPress }) => {
         ) : (
           <View style={[detailStyles.postImage, detailStyles.postImagePlaceholder]}>
             <Ionicons name="image-outline" size={32} color={COLORS.textSubtle} />
-          </View>
-        )}
-
-        {/* 좌측 상단 카테고리 아이콘 */}
-        {item.categoryName && (
-          <View style={detailStyles.categoryIcon}>
-            <Text style={detailStyles.categoryEmoji}>
-              {item.categoryName === '개화 상황' && '🌸'}
-              {item.categoryName === '맛집 정보' && '🍜'}
-              {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-            </Text>
           </View>
         )}
 
@@ -134,9 +124,9 @@ const DetailScreen = () => {
   const categories = useMemo(() => ['자연', '힐링', '액티비티', '맛집', '카페'], []);
 
   const tabs = useMemo(() => [
-    { id: 'realtime', label: '실시간 정보' },
-    { id: 'crowded', label: '실시간 밀집 지역' },
-    { id: 'recommended', label: '추천 지역' }
+    { id: 'realtime', label: '지금 여기는!' },
+    { id: 'crowded', label: '지금 사람 많은 곳!' },
+    { id: 'recommended', label: '추천 장소' }
   ], []);
 
   // 표시할 데이터 가져오기
@@ -315,22 +305,28 @@ const DetailScreen = () => {
   const currentDisplayData = useMemo(() => getDisplayData(), [getDisplayData]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {activeTab === 'realtime' && '실시간 정보'}
-          {activeTab === 'crowded' && '실시간 밀집지역'}
-          {activeTab === 'recommended' && '추천 장소'}
-        </Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 헤더 - 웹과 동일한 구조 */}
+        <ScreenHeader>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {activeTab === 'realtime' && '지금 여기는!'}
+              {activeTab === 'crowded' && '지금 사람 많은 곳!'}
+              {activeTab === 'recommended' && '추천 장소'}
+            </Text>
+            <View style={styles.headerPlaceholder} />
+          </View>
+        </ScreenHeader>
+
+        {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
 
       {/* 탭 */}
       <View style={styles.tabsContainer}>
@@ -389,18 +385,21 @@ const DetailScreen = () => {
             color={COLORS.textSubtle}
           />
           <Text style={styles.emptyTitle}>
-            {activeTab === 'realtime' && '실시간 정보가 아직 없어요'}
-            {activeTab === 'crowded' && '밀집 지역 정보가 아직 없어요'}
+            {activeTab === 'realtime' && '아직 지금 이곳의 모습이 올라오지 않았어요'}
+            {activeTab === 'crowded' && '아직 어디가 붐비는지 정보가 없어요'}
             {activeTab === 'recommended' && '추천 장소가 아직 없어요'}
           </Text>
           <Text style={styles.emptySubtitle}>
-            첫 번째로 여행 정보를 공유하고{'\n'}다른 사용자들과 함께 만들어가요!
+            {activeTab === 'realtime' && '지금 보고 있는 장소와 분위기, 날씨가 보이도록 한 장만 남겨 주세요'}
+            {activeTab === 'crowded' && '지금 있는 곳의 상황과 느낌을 남겨 주면 다른 사람들의 선택에 도움이 돼요'}
+            {activeTab === 'recommended' && '첫 번째로 추천 장소를 공유해보세요!'}
           </Text>
           <TouchableOpacity
             style={styles.uploadButton}
             onPress={() => navigation.navigate('UploadTab')}
           >
-            <Text style={styles.uploadButtonText}>정보 공유하기</Text>
+            <Ionicons name="add-circle" size={20} color="white" />
+            <Text style={styles.uploadButtonText}>첫 사진 올리기</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -423,7 +422,9 @@ const DetailScreen = () => {
           }
         />
       )}
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -436,49 +437,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md, // p-4
+    paddingVertical: SPACING.md, // p-4
+    backgroundColor: COLORS.backgroundLight, // bg-white
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#E4E4E7', // border-zinc-200
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   backButton: {
-    width: 40,
+    width: 40, // size-10 = 40px
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8, // rounded-lg
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
+    fontSize: 22, // text-[22px] (웹과 동일)
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-primary-light (웹과 동일)
+    letterSpacing: -0.33, // tracking-[-0.015em] = -0.33px (웹과 동일)
+    lineHeight: 26.4, // leading-tight (웹과 동일)
   },
   headerPlaceholder: {
-    width: 40,
+    width: 40, // w-10 = 40px
   },
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#E4E4E7', // border-zinc-200
     backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md,
   },
   tab: {
     flex: 1,
-    paddingVertical: SPACING.md,
+    flexDirection: 'column', // flex flex-col (웹과 동일)
     alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
+    paddingTop: SPACING.sm, // pt-2 = 8px (웹과 동일)
+    paddingBottom: 13, // pb-[13px] = 13px (웹과 동일)
+    paddingHorizontal: SPACING.sm, // px-2 = 8px (웹과 동일)
+    borderBottomWidth: 3, // border-b-[3px] (웹과 동일)
+    borderBottomColor: 'transparent', // border-b-transparent (비활성화, 웹과 동일)
   },
   tabActive: {
-    borderBottomColor: COLORS.primary,
+    borderBottomColor: COLORS.primary, // border-b-primary (웹과 동일)
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 14, // text-sm = 14px (웹과 동일)
     fontWeight: 'bold',
-    color: COLORS.textSecondary,
+    color: COLORS.textSubtle, // text-text-subtle-light (비활성화, 웹과 동일)
+    letterSpacing: 0.21, // tracking-[0.015em] = 0.21px (웹과 동일)
+    lineHeight: 20, // leading-normal (웹과 동일)
   },
   tabTextActive: {
-    color: COLORS.primary,
+    color: COLORS.primary, // text-primary (웹과 동일)
   },
   categoryFilter: {
     paddingHorizontal: SPACING.md,
@@ -489,29 +505,32 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   categoryButton: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 999,
-    backgroundColor: COLORS.borderLight,
-    marginRight: SPACING.sm,
+    paddingHorizontal: SPACING.md, // px-4
+    paddingVertical: SPACING.sm, // py-2
+    borderRadius: 999, // rounded-full
+    backgroundColor: COLORS.borderLight, // bg-card-light
+    marginRight: SPACING.sm, // gap-2
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)', // ring-1 ring-inset ring-black/10
   },
   categoryButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primary, // bg-primary
+    borderColor: 'transparent',
   },
   categoryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 14, // text-sm
+    fontWeight: '600', // font-semibold
+    color: COLORS.text, // text-text-light
   },
   categoryButtonTextActive: {
-    color: COLORS.backgroundLight,
+    color: COLORS.backgroundLight, // text-white
   },
   gridContainer: {
-    padding: SPACING.md,
+    padding: SPACING.md, // p-4 = 16px
   },
   gridRow: {
     justifyContent: 'space-between',
-    marginBottom: SPACING.md,
+    marginBottom: 0, // gap-4는 각 아이템의 marginBottom으로 처리
   },
   emptyContainer: {
     flex: 1,
@@ -520,29 +539,38 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
+    fontSize: 16, // text-base = 16px (웹과 동일)
+    fontWeight: '500', // font-medium (웹과 동일)
+    color: '#6B7280', // text-gray-500 (웹과 동일)
+    marginTop: SPACING.md, // mb-4 = 16px (웹과 동일)
+    marginBottom: SPACING.sm, // mb-2 = 8px (웹과 동일)
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 14, // text-sm = 14px (웹과 동일)
+    color: '#9CA3AF', // text-gray-400 (웹과 동일)
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md, // mb-4 = 16px (웹과 동일)
+    maxWidth: 320, // max-w-xs = 320px (웹과 동일)
   },
   uploadButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm, // gap-2 = 8px (웹과 동일)
+    backgroundColor: COLORS.primary, // bg-primary (웹과 동일)
+    paddingHorizontal: SPACING.lg, // px-6 = 24px (웹과 동일)
+    paddingVertical: 12, // py-3 = 12px (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5, // shadow-lg (웹과 동일)
   },
   uploadButtonText: {
-    color: COLORS.backgroundLight,
-    fontSize: 16,
-    fontWeight: '600',
+    color: 'white', // text-white (웹과 동일)
+    fontSize: 16, // text-base = 16px (웹과 동일)
+    fontWeight: '600', // font-semibold (웹과 동일)
   },
   loadingFooter: {
     flexDirection: 'row',
@@ -561,14 +589,14 @@ const styles = StyleSheet.create({
 const detailStyles = StyleSheet.create({
   postItem: {
     width: (SCREEN_WIDTH - SPACING.md * 3) / 2,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.md, // gap-4 = 16px
   },
   postImageContainer: {
     width: '100%',
-    aspectRatio: 4 / 5,
-    borderRadius: 12,
+    aspectRatio: 4 / 5, // aspect-[4/5]
+    borderRadius: 12, // rounded-lg
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
+    marginBottom: 12, // mb-3 = 12px
     backgroundColor: COLORS.borderLight,
     position: 'relative',
   },
@@ -581,46 +609,27 @@ const detailStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  categoryIcon: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  categoryEmoji: {
-    fontSize: 24,
-  },
   likeBadge: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    bottom: 12, // bottom-3 = 12px (웹과 동일)
+    right: 12, // right-3 = 12px (웹과 동일)
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    gap: 4, // gap-1 = 4px (웹과 동일)
+    backgroundColor: 'rgba(255,255,255,0.9)', // bg-white/90 backdrop-blur-sm (웹과 동일)
+    paddingHorizontal: 12, // px-3 = 12px (웹과 동일)
+    paddingVertical: 6, // py-1.5 = 6px (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 3, // shadow-md (웹과 동일)
   },
   likeCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 14, // text-sm = 14px (웹과 동일)
+    fontWeight: '600', // font-semibold (웹과 동일)
+    color: '#374151', // text-gray-700 (웹과 동일)
   },
   postTextContainer: {
     marginTop: SPACING.sm,
@@ -633,18 +642,19 @@ const detailStyles = StyleSheet.create({
     gap: SPACING.xs,
   },
   locationText: {
-    fontSize: 16,
+    fontSize: 16, // text-base = 16px
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.text, // text-text-primary-light
     flex: 1,
   },
   timeText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+    fontSize: 12, // text-xs = 12px
+    color: COLORS.textSecondary, // text-text-secondary-light
   },
   subLocationText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSecondary, // text-text-secondary-light
+    marginTop: 2, // mt-0.5 = 2px
   },
   tagsScroll: {
     marginVertical: SPACING.xs,
@@ -653,21 +663,21 @@ const detailStyles = StyleSheet.create({
     gap: SPACING.xs,
   },
   tagBadge: {
-    backgroundColor: COLORS.primary + '10',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginRight: SPACING.xs,
+    backgroundColor: COLORS.primary + '1A', // bg-primary/10
+    paddingHorizontal: 10, // px-2.5 = 10px
+    paddingVertical: 4, // py-1 = 4px
+    borderRadius: 999, // rounded-full
+    marginRight: 6, // gap-1.5 = 6px
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.primary,
+    fontSize: 12, // text-xs
+    fontWeight: '500', // font-medium
+    color: COLORS.primary, // text-primary
   },
   noteText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSecondary, // text-text-secondary-light
+    lineHeight: 20, // line-clamp-2 (대략 2줄)
   },
 });
 

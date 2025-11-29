@@ -60,9 +60,9 @@ const DetailScreen = () => {
 
   // 탭 목록 (메모이제이션)
   const tabs = useMemo(() => [
-    { id: 'realtime', label: '실시간 정보' },
-    { id: 'crowded', label: '실시간 밀집 지역' },
-    { id: 'recommended', label: '추천 지역' }
+    { id: 'realtime', label: '지금 여기는!' },
+    { id: 'crowded', label: '지금 사람 많은 곳!' },
+    { id: 'recommended', label: '추천 장소' }
   ], []);
 
   // 탭 변경 핸들러 (URL 업데이트 포함)
@@ -293,13 +293,13 @@ const DetailScreen = () => {
         <div className="flex items-center justify-between p-4">
           <button 
             onClick={() => navigate(-1)}
-            className="flex size-10 shrink-0 items-center justify-center text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+            className="flex size-12 shrink-0 items-center justify-center text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
-          <h1 className="text-text-primary-light dark:text-text-primary-dark text-xl font-bold leading-tight tracking-[-0.015em]">
-            {activeTab === 'realtime' && '실시간 정보'}
-            {activeTab === 'crowded' && '실시간 밀집지역'}
+          <h1 className="text-text-primary-light dark:text-text-primary-dark text-[22px] font-bold leading-tight tracking-[-0.015em]">
+            {activeTab === 'realtime' && '지금 여기는!'}
+            {activeTab === 'crowded' && '지금 사람 많은 곳!'}
             {activeTab === 'recommended' && '추천 장소'}
           </h1>
           <div className="w-10"></div>
@@ -314,7 +314,7 @@ const DetailScreen = () => {
                 className={`flex flex-col items-center justify-center border-b-[3px] pb-[13px] pt-2 px-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-b-primary text-primary'
-                    : 'border-b-transparent text-text-secondary-light dark:text-text-secondary-dark'
+                    : 'border-b-transparent text-text-subtle-light dark:text-text-subtle-dark'
                 }`}
               >
                 <p className="text-sm font-bold leading-normal tracking-[0.015em]">
@@ -363,19 +363,22 @@ const DetailScreen = () => {
             <span className="material-symbols-outlined text-7xl text-gray-300 dark:text-gray-600 mb-4">
               {activeTab === 'realtime' ? 'update' : activeTab === 'crowded' ? 'people' : 'recommend'}
             </span>
-            <p className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2 text-center">
-              {activeTab === 'realtime' && '실시간 정보가 아직 없어요'}
-              {activeTab === 'crowded' && '밀집 지역 정보가 아직 없어요'}
+            <p className="text-base font-medium text-gray-500 dark:text-gray-400 mb-2 text-center">
+              {activeTab === 'realtime' && '아직 지금 이곳의 모습이 올라오지 않았어요'}
+              {activeTab === 'crowded' && '아직 어디가 붐비는지 정보가 없어요'}
               {activeTab === 'recommended' && '추천 장소가 아직 없어요'}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6 max-w-xs">
-              첫 번째로 여행 정보를 공유하고<br />다른 사용자들과 함께 만들어가요!
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center mb-4 max-w-xs">
+              {activeTab === 'realtime' && '지금 보고 있는 장소와 분위기, 날씨가 보이도록 한 장만 남겨 주세요'}
+              {activeTab === 'crowded' && '지금 있는 곳의 상황과 느낌을 남겨 주면 다른 사람들의 선택에 도움이 돼요'}
+              {activeTab === 'recommended' && '첫 번째로 추천 장소를 공유해보세요!'}
             </p>
             <button
               onClick={() => navigate('/upload')}
-              className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors"
+              className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2"
             >
-              정보 공유하기
+              <span className="material-symbols-outlined">add_a_photo</span>
+              첫 사진 올리기
             </button>
           </div>
         ) : (
@@ -386,8 +389,8 @@ const DetailScreen = () => {
               const likeCount = item.likes || item.likesCount || 0;
               
               return (
-                <div 
-                  key={item.id} 
+              <div 
+                key={item.id} 
                   className="cursor-pointer group"
                   onClick={() => {
                     const allPosts = getDisplayData();
@@ -400,7 +403,7 @@ const DetailScreen = () => {
                       } 
                     });
                   }}
-                >
+              >
                   <div>
                     {/* 이미지 */}
                     <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-3">
@@ -416,24 +419,14 @@ const DetailScreen = () => {
                           onMouseLeave={(e) => e.target.pause()}
                         />
                       ) : (
-                        <img
+                  <img
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          src={item.image}
-                          alt={item.location}
-                        />
+                    src={item.image}
+                    alt={item.location}
+                  />
                       )}
-                      
-                      {/* 좌측 상단 카테고리 아이콘 */}
-                      {item.categoryName && (
-                        <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md">
-                          <span className="text-2xl">
-                            {item.categoryName === '개화 상황' && '🌸'}
-                            {item.categoryName === '맛집 정보' && '🍜'}
-                            {(!item.categoryName || !['개화 상황', '맛집 정보'].includes(item.categoryName)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
-                      
+                  
+                  
                       {/* 우측 하단 하트 아이콘 */}
                       <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">
                         <span className={`material-symbols-outlined text-base ${isLiked ? 'text-red-500 fill' : 'text-gray-600'}`}>
@@ -443,42 +436,42 @@ const DetailScreen = () => {
                       </div>
                     </div>
                     
-                    {/* 이미지 밖 하단 텍스트 */}
-                    <div className="space-y-2">
+                    {/* 이미지 밖 하단 텍스트 - 사진이 먼저 보이도록 글자 살짝 축소 */}
+                    <div className="space-y-1.5">
                       {/* 지역 상세 정보 */}
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
+                          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {item.detailedLocation || item.placeName || item.location || '여행지'}
                           </p>
                           {/* 업로드 시간 - 지역 옆에 */}
                           {item.time && (
-                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                            <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
                               {item.time}
                             </p>
                           )}
                         </div>
                         {item.detailedLocation && item.detailedLocation !== item.location && (
-                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
+                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
                             {item.location}
-                          </p>
-                        )}
+                        </p>
+                      )}
                       </div>
                       
-                      {/* 해시태그 - 지역 이름 밑에 (줄 바꿈 없이) */}
+                      {/* 해시태그 - 글자 크기 살짝 축소 */}
                       {item.tags && item.tags.length > 0 && (
                         <div className="flex gap-1.5 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                           {item.tags.slice(0, 5).map((tag, tagIndex) => (
-                            <span key={tagIndex} className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">
+                            <span key={tagIndex} className="text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
                               #{typeof tag === 'string' ? tag.replace('#', '') : tag}
                             </span>
                           ))}
                         </div>
                       )}
                       
-                      {/* 메모/내용 */}
+                      {/* 메모/내용 - 한 줄 더 가볍게 */}
                       {item.note && (
-                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark line-clamp-2">
+                        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark leading-snug line-clamp-2">
                           {item.note}
                         </p>
                       )}

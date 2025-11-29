@@ -345,7 +345,24 @@ const SearchScreen = () => {
   // 지역별 대표 사진 로드 (자동 업데이트 제거)
   useEffect(() => {
     loadRegionPhotos();
-    // 사용자가 새로고침할 때만 데이터 갱신
+    
+    // 게시물 업데이트 이벤트 리스너
+    const handlePostsUpdate = () => {
+      console.log('🔄 검색 화면 - 게시물 업데이트 감지');
+      setTimeout(() => {
+        console.log('📸 검색 화면 - 지역 사진 새로고침 시작');
+        loadRegionPhotos();
+        console.log('✅ 검색 화면 - 지역 사진 새로고침 완료');
+      }, 200); // 데이터 저장 완료 대기
+    };
+    
+    window.addEventListener('postsUpdated', handlePostsUpdate);
+    window.addEventListener('newPostsAdded', handlePostsUpdate);
+    
+    return () => {
+      window.removeEventListener('postsUpdated', handlePostsUpdate);
+      window.removeEventListener('newPostsAdded', handlePostsUpdate);
+    };
   }, [loadRegionPhotos]);
 
   // 외부 클릭 시 자동완성 닫기
@@ -366,14 +383,14 @@ const SearchScreen = () => {
     <div className="screen-layout text-text-light dark:text-text-dark bg-background-light dark:bg-background-dark">
       <div className="screen-content">
         {/* 헤더 */}
-        <div className="screen-header flex items-center p-4 pb-2 justify-between bg-white dark:bg-gray-900 shadow-sm relative z-50">
+        <div className="screen-header flex items-center p-4 justify-between bg-white dark:bg-gray-900 shadow-sm relative z-50">
           <button 
             onClick={() => navigate(-1)}
-            className="flex size-12 shrink-0 items-center"
+            className="flex size-12 shrink-0 items-center justify-center text-[#1c140d] dark:text-background-light hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined text-[#1c140d] dark:text-background-light">arrow_back</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
-          <h1 className="text-[#1c140d] dark:text-background-light text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
+          <h1 className="text-[#1c140d] dark:text-background-light text-xl font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
             LiveJourney
           </h1>
           <div className="flex w-12 items-center justify-end"></div>
@@ -382,7 +399,7 @@ const SearchScreen = () => {
         {/* 메인 컨텐츠 */}
         <div className="screen-body">
           {/* 검색창 + 결과 영역 - sticky */}
-          <div className="px-4 py-3 sticky top-16 z-30 bg-white dark:bg-gray-900">
+          <div className="px-4 py-3 sticky top-16 z-30 bg-white dark:bg-gray-900 relative">
           <form onSubmit={handleSearch}>
             <label className="flex flex-col min-w-40 h-14 w-full">
               <div className="flex w-full flex-1 items-stretch rounded-full h-full">
@@ -404,9 +421,13 @@ const SearchScreen = () => {
             </label>
           </form>
 
-          {/* 검색 결과 - 검색창 바로 아래 (일반 flow) */}
+          {/* 검색 결과 - 추천 지역 위에 오버레이로 표시 */}
           {showSuggestions && (filteredRegions.length > 0 || searchQuery.trim()) && (
-            <div ref={searchContainerRef} className="mt-3">
+            <div 
+              ref={searchContainerRef} 
+              className="mt-3 absolute left-4 right-4 z-[100]"
+              style={{ top: 'calc(100% + 12px)' }}
+            >
               {filteredRegions.length > 0 ? (
                 <div 
                   className="bg-white dark:bg-[#2F2418] rounded-2xl shadow-2xl ring-2 ring-primary/30 dark:ring-primary/50 overflow-y-auto"
@@ -437,12 +458,12 @@ const SearchScreen = () => {
         </div>
 
         {/* 추천 지역 */}
-        <h2 className="text-[#1c140d] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
+        <h2 className={`text-[#1c140d] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5 ${showSuggestions ? 'opacity-30' : ''}`}>
           추천 지역
         </h2>
 
         {topRegions.length === 0 ? (
-          <div className="px-4 py-12 text-center">
+          <div className={`px-4 py-12 text-center ${showSuggestions ? 'opacity-30' : ''}`}>
             <span className="material-symbols-outlined text-gray-400 text-6xl mb-4">explore</span>
             <p className="text-gray-600 dark:text-gray-400 text-base font-bold mb-2">
               아직 추천할 지역이 없어요
@@ -458,7 +479,7 @@ const SearchScreen = () => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
-            className="flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth"
+            className={`flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory scroll-smooth ${showSuggestions ? 'opacity-30 pointer-events-none' : ''}`}
             style={{ 
               scrollBehavior: 'smooth', 
               WebkitOverflowScrolling: 'touch',
@@ -478,31 +499,12 @@ const SearchScreen = () => {
                     onClick={() => handleRegionClickWithDragCheck(region.name)}
                   >
                     <div 
-                      className="relative w-full bg-center bg-no-repeat aspect-[16/9] bg-cover rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md"
+                      className="relative w-full bg-center bg-no-repeat aspect-[4/3] bg-cover rounded-lg overflow-hidden hover:opacity-90 transition-opacity shadow-md"
                       style={{ backgroundImage: `url("${displayImage}")` }}
                     >
                       {/* 그라데이션 오버레이 */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3))' }}></div>
                       
-                      {/* 좌측상단: 카테고리 아이콘만 */}
-                      {region.category && (
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1 }}>
-                          <span style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            width: '40px', 
-                            height: '40px', 
-                            fontSize: '24px',
-                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
-                            background: 'transparent'
-                          }}>
-                            {region.category === '개화 상황' && '🌸'}
-                            {region.category === '맛집 정보' && '🍜'}
-                            {(!region.category || !['개화 상황', '맛집 정보'].includes(region.category)) && '🏞️'}
-                          </span>
-                        </div>
-                      )}
                       
                       {/* 좌측하단: 지역 이름 + 위치정보 + 업로드시간 */}
                       <div style={{ 
@@ -560,7 +562,7 @@ const SearchScreen = () => {
         )}
 
         {/* 최근 검색 지역 */}
-        <div className="flex items-baseline justify-between px-4 pb-3 pt-8">
+        <div className={`flex items-baseline justify-between px-4 pb-3 pt-8 ${showSuggestions ? 'opacity-30' : ''}`}>
           <h2 className="text-[#1c140d] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em]">
             최근 검색지역
           </h2>
@@ -573,7 +575,7 @@ const SearchScreen = () => {
         </div>
 
         {recentSearches.length === 0 ? (
-          <div className="px-4 pb-8">
+          <div className={`px-4 pb-8 ${showSuggestions ? 'opacity-30' : ''}`}>
             <p className="text-sm text-gray-500 dark:text-gray-400">최근 검색한 지역이 없습니다.</p>
           </div>
         ) : (
@@ -583,7 +585,7 @@ const SearchScreen = () => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
-            className="flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory pb-8 scroll-smooth"
+            className={`flex overflow-x-scroll overflow-y-hidden [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory pb-8 scroll-smooth ${showSuggestions ? 'opacity-30 pointer-events-none' : ''}`}
             style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
           >
             <div className="flex items-center px-4 gap-2">

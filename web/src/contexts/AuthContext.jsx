@@ -185,6 +185,74 @@ export const AuthProvider = ({ children }) => {
     window.location.href = `${apiUrl}/api/auth/${provider.toLowerCase()}`;
   };
 
+  // 테스터 계정으로 바로 로그인
+  const testerLogin = async () => {
+    try {
+      const testerEmail = 'tester@livejourney.com';
+      const testerPassword = 'tester123';
+      const testerUsername = '테스터';
+
+      // 먼저 실제 API 시도
+      try {
+        const response = await api.post('/users/login', { 
+          email: testerEmail, 
+          password: testerPassword 
+        });
+        const { token, user } = response.data;
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+
+        return { success: true };
+      } catch (apiError) {
+        // API 실패 시 Mock 모드로 전환
+        console.warn('백엔드 연결 실패, 테스터 계정 Mock 모드로 전환');
+        
+        // Mock 사용자 생성 또는 기존 사용자 사용
+        const savedUsers = JSON.parse(localStorage.getItem('mock_users') || '[]');
+        
+        let testerUser = savedUsers.find(u => u.email === testerEmail);
+        
+        if (!testerUser) {
+          // 테스터 계정 생성
+          testerUser = {
+            id: 'tester_' + Date.now(),
+            email: testerEmail,
+            password: testerPassword,
+            username: testerUsername,
+            points: 10000,
+            badges: ['테스터'],
+            createdAt: new Date().toISOString()
+          };
+          
+          savedUsers.push(testerUser);
+          localStorage.setItem('mock_users', JSON.stringify(savedUsers));
+        }
+        
+        const mockUser = {
+          id: testerUser.id,
+          email: testerUser.email,
+          username: testerUser.username,
+          points: testerUser.points,
+          badges: testerUser.badges
+        };
+        
+        localStorage.setItem('token', 'mock_token_tester_' + Date.now());
+        localStorage.setItem('user', JSON.stringify(mockUser));
+        setUser(mockUser);
+        
+        return { success: true };
+      }
+    } catch (error) {
+      console.error('테스터 로그인 실패:', error);
+      return {
+        success: false,
+        error: '테스터 계정 로그인에 실패했습니다.'
+      };
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -193,6 +261,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     socialLogin,
+    testerLogin,
     isAuthenticated: !!user
   };
 

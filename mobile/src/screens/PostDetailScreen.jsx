@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  TextInput,
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
@@ -12,12 +13,16 @@ import {
   PanResponder,
   Animated,
 } from 'react-native';
+
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
+
 import { getTimeAgo } from '../utils/timeUtils';
 import { toggleLike, isPostLiked, addComment } from '../utils/socialInteractions';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
+import { BADGES } from '../utils/badgeSystem';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,6 +62,14 @@ const PostDetailScreen = () => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
+  const [representativeBadge, setRepresentativeBadge] = useState(null);
+  
+  // 하트 애니메이션 값
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const pulseScale = useRef(new Animated.Value(0)).current;
+  const pulseOpacity = useRef(new Animated.Value(0)).current;
 
   // 슬라이드 가능한 게시물 목록
   const slideablePosts = useMemo(() => {
@@ -73,6 +86,35 @@ const PostDetailScreen = () => {
     return [...images.map(img => ({ type: 'image', url: img })), ...videos.map(vid => ({ type: 'video', url: vid }))];
   }, [post]);
 
+  // 대표 뱃지 로드
+  const loadRepresentativeBadge = useCallback(async (userId) => {
+    if (!userId) return;
+    
+    try {
+      const repBadgeJson = await AsyncStorage.getItem(`representativeBadge_${userId}`);
+      if (repBadgeJson) {
+        const repBadge = JSON.parse(repBadgeJson);
+        setRepresentativeBadge(repBadge);
+      } else {
+        // 대표 뱃지가 없으면 임의로 설정 (실제 뱃지 시스템의 뱃지 사용)
+        const availableBadges = Object.values(BADGES).map(badge => ({
+          name: badge.name,
+          icon: badge.icon,
+          description: badge.description,
+          difficulty: badge.difficulty
+        }));
+        
+        const hash = userId.toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const badgeIndex = hash % availableBadges.length;
+        const mockRepBadge = availableBadges[badgeIndex];
+        await AsyncStorage.setItem(`representativeBadge_${userId}`, JSON.stringify(mockRepBadge));
+        setRepresentativeBadge(mockRepBadge);
+      }
+    } catch (error) {
+      console.error('대표 뱃지 로드 실패:', error);
+    }
+  }, []);
+
   // 게시물 데이터 가져오기
   const fetchPost = useCallback(async () => {
     if (!postId && !passedPost) {
@@ -81,41 +123,109 @@ const PostDetailScreen = () => {
     }
 
     try {
+      let currentPost = null;
+      
       if (passedPost) {
-        setPost(passedPost);
-        setLiked(await isPostLiked(passedPost.id));
-        setLikeCount(passedPost.likes || 0);
-        setComments([...(passedPost.comments || []), ...(passedPost.qnaList || [])]);
-        setLoading(false);
-        return;
+        currentPost = passedPost;
+      } else {
+        // AsyncStorage에서 게시물 찾기
+        const uploadedPostsJson = await AsyncStorage.getItem('uploadedPosts');
+        const uploadedPosts = uploadedPostsJson ? JSON.parse(uploadedPostsJson) : [];
+        currentPost = uploadedPosts.find(p => p.id === postId);
       }
 
-      // AsyncStorage에서 게시물 찾기
-      const uploadedPostsJson = await AsyncStorage.getItem('uploadedPosts');
-      const uploadedPosts = uploadedPostsJson ? JSON.parse(uploadedPostsJson) : [];
-      const foundPost = uploadedPosts.find(p => p.id === postId);
-
-      if (foundPost) {
-        setPost(foundPost);
-        setLiked(await isPostLiked(foundPost.id));
-        setLikeCount(foundPost.likes || 0);
-        setComments([...(foundPost.comments || []), ...(foundPost.qnaList || [])]);
+      if (currentPost) {
+        setPost(currentPost);
+        setLiked(await isPostLiked(currentPost.id));
+        setLikeCount(currentPost.likes || 0);
+        setComments([...(currentPost.comments || []), ...(currentPost.qnaList || [])]);
+        
+        // 대표 뱃지 로드
+        const postUserId = currentPost.userId || 
+                          (typeof currentPost.user === 'string' ? currentPost.user : currentPost.user?.id) ||
+                          currentPost.user;
+        if (postUserId) {
+          await loadRepresentativeBadge(postUserId);
+        }
       }
     } catch (error) {
       console.error('게시물 불러오기 실패:', error);
     } finally {
       setLoading(false);
     }
-  }, [postId, passedPost]);
+  }, [postId, passedPost, loadRepresentativeBadge]);
 
   // 좋아요 처리
   const handleLike = useCallback(async () => {
     if (!post) return;
     
+    const wasLiked = liked;
+    // 즉각적으로 UI 업데이트
+    const newLikedState = !liked;
+    setLiked(newLikedState);
+    
     const result = await toggleLike(post.id);
+    // 결과에 따라 상태 업데이트
     setLiked(result.isLiked);
     setLikeCount(result.newCount);
-  }, [post]);
+    
+    // 좋아요를 누를 때만 애니메이션 표시 (좋아요 취소가 아닐 때)
+    if (result.isLiked && !wasLiked) {
+      setShowHeartAnimation(true);
+      heartScale.setValue(0);
+      heartOpacity.setValue(1);
+      pulseScale.setValue(0);
+      pulseOpacity.setValue(0.8);
+      
+      // 큰 하트 애니메이션: 부드럽게 나타났다가 사라짐
+      Animated.parallel([
+        Animated.sequence([
+          Animated.spring(heartScale, {
+            toValue: 1.3,
+            tension: 40,
+            friction: 8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(heartScale, {
+            toValue: 1.0,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.delay(300),
+          Animated.timing(heartOpacity, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]),
+        // 펄스 링 애니메이션 (큰 하트 강조 효과)
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(pulseScale, {
+              toValue: 2.5,
+              duration: 600,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(pulseOpacity, {
+              toValue: 0,
+              duration: 600,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      ]).start(() => {
+        setShowHeartAnimation(false);
+        heartScale.setValue(0);
+        heartOpacity.setValue(0);
+        pulseScale.setValue(0);
+        pulseOpacity.setValue(0.8);
+      });
+    }
+  }, [post, liked, heartScale, heartOpacity, pulseScale, pulseOpacity]);
 
   // 이미지 스와이프
   const handleImageSwipe = useCallback((direction) => {
@@ -205,21 +315,21 @@ const PostDetailScreen = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   if (!post) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>게시물을 찾을 수 없습니다.</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
@@ -231,14 +341,44 @@ const PostDetailScreen = () => {
   const categoryName = post?.categoryName || null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenLayout>
+      <ScreenContent>
+      {/* 하트 애니메이션 오버레이 */}
+      {showHeartAnimation && (
+        <View style={styles.heartAnimationContainer} pointerEvents="none">
+          {/* 펄스 링 (큰 하트 강조 효과) */}
+          <Animated.View
+            style={[
+              styles.pulseRing,
+              {
+                transform: [{ scale: pulseScale }],
+                opacity: pulseOpacity,
+              },
+            ]}
+          />
+          
+          {/* 큰 중앙 하트 */}
+          <Animated.View
+            style={[
+              styles.heartAnimation,
+              {
+                transform: [{ scale: heartScale }],
+                opacity: heartOpacity,
+              },
+            ]}
+          >
+            <Ionicons name="heart" size={120} color="#ef4444" />
+          </Animated.View>
+        </View>
+      )}
+
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          <Ionicons name="arrow-back" size={24} color="#181410" />
         </TouchableOpacity>
       </View>
 
@@ -304,8 +444,8 @@ const PostDetailScreen = () => {
           )}
         </View>
 
-        {/* 스크롤 가능한 컨텐츠 */}
-        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* 스크롤 가능한 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
           {/* 작성자 정보 */}
           <View style={styles.authorSection}>
             <TouchableOpacity
@@ -321,8 +461,22 @@ const PostDetailScreen = () => {
                 <Ionicons name="person" size={24} color={COLORS.textSubtle} />
               </View>
               <View style={styles.authorText}>
-                <Text style={styles.authorName}>{userName}</Text>
-                <Text style={styles.authorBadge}>🎖️ {userBadge}</Text>
+                <View style={styles.authorNameRow}>
+                  <Text style={styles.authorName}>{userName}</Text>
+                  {representativeBadge && (
+                    <View style={styles.representativeBadgeInPost}>
+                      <Text style={styles.representativeBadgeIconInPost}>
+                        {representativeBadge.icon}
+                      </Text>
+                      <Text style={styles.representativeBadgeNameInPost} numberOfLines={1}>
+                        {representativeBadge.name}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {!representativeBadge && (
+                  <Text style={styles.authorBadge}>🎖️ {userBadge}</Text>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -397,21 +551,124 @@ const PostDetailScreen = () => {
           {/* 좋아요/댓글 */}
           <View style={styles.actionsSection}>
             <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
-              <Ionicons
-                name={liked ? 'heart' : 'heart-outline'}
-                size={28}
-                color={liked ? COLORS.error : COLORS.text}
-              />
+              {liked ? (
+                <Ionicons
+                  name="heart"
+                  size={28}
+                  color="#ef4444"
+                />
+              ) : (
+                <Ionicons
+                  name="heart-outline"
+                  size={28}
+                  color={COLORS.text}
+                />
+              )}
               <Text style={styles.actionText}>{likeCount}</Text>
             </TouchableOpacity>
             <View style={styles.actionButton}>
               <Ionicons name="chatbubble-outline" size={28} color={COLORS.text} />
               <Text style={styles.actionText}>{comments.length}</Text>
             </View>
+        </View>
+
+          {/* 댓글 섹션 */}
+          {comments.length > 0 && (
+            <View style={styles.commentsSection}>
+              <Text style={styles.commentsTitle}>댓글 {comments.length}</Text>
+              {comments.map((comment, index) => {
+                const postUserId = post?.userId || 
+                                  (typeof post?.user === 'string' ? post.user : post?.user?.id) ||
+                                  post?.user;
+                const commentUserId = comment.userId || 
+                                     (typeof comment.user === 'string' ? comment.user : comment.user?.id) ||
+                                     comment.user;
+                const isAuthor = postUserId && commentUserId && postUserId === commentUserId;
+                
+                return (
+                  <View key={comment.id || index} style={styles.commentItem}>
+                    <View style={styles.commentAvatar}>
+                      <Ionicons name="person" size={20} color={COLORS.textSubtle} />
+                    </View>
+                    <View style={styles.commentContent}>
+                      <View style={styles.commentHeader}>
+                        <Text style={styles.commentUser}>
+                          {comment.user || comment.username || '익명'}
+                        </Text>
+                        {isAuthor && (
+                          <View style={styles.authorBadgeComment}>
+                            <Text style={styles.authorBadgeText}>작성자</Text>
+                          </View>
+                        )}
+                        {comment.timestamp && (
+                          <Text style={styles.commentTime}>
+                            {getTimeAgo(comment.timestamp)}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={styles.commentText}>
+                        {comment.content || comment.comment || comment.text}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* 댓글 입력 */}
+          <View style={styles.commentInputSection}>
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="댓글을 입력하세요..."
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                placeholderTextColor={COLORS.textSecondary}
+              />
+              <TouchableOpacity
+                style={[styles.commentSubmitButton, !commentText.trim() && styles.commentSubmitButtonDisabled]}
+                onPress={async () => {
+                  if (!commentText.trim() || !post) return;
+                  
+                  try {
+                    const userJson = await AsyncStorage.getItem('user');
+                    const user = userJson ? JSON.parse(userJson) : {};
+                    const username = user.username || user.name || '익명';
+                    const userId = user.id;
+                    
+                    await addComment(post.id, commentText.trim(), username, userId);
+                    
+                    // 게시물 다시 로드하여 댓글 목록 업데이트
+                    const uploadedPostsJson = await AsyncStorage.getItem('uploadedPosts');
+                    const uploadedPosts = uploadedPostsJson ? JSON.parse(uploadedPostsJson) : [];
+                    const updatedPost = uploadedPosts.find(p => p.id === post.id);
+                    
+                    if (updatedPost) {
+                      setPost(updatedPost);
+                      setComments([...(updatedPost.comments || []), ...(updatedPost.qnaList || [])]);
+                    }
+                    
+                    setCommentText('');
+                  } catch (error) {
+                    console.error('댓글 추가 실패:', error);
+                  }
+                }}
+                disabled={!commentText.trim()}
+              >
+                <Ionicons 
+                  name="send" 
+                  size={20} 
+                  color={commentText.trim() ? COLORS.primary : COLORS.textSecondary} 
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        </ScrollView>
+        </ScreenBody>
       </View>
-    </SafeAreaView>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -420,8 +677,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+
   loadingContainer: {
     flex: 1,
+
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -439,18 +698,26 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48, // size-12 = 48px (웹과 동일)
+    height: 48, // size-12 = 48px (웹과 동일)
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8, // rounded-lg (웹과 동일)
   },
   content: {
+
     flex: 1,
   },
   mediaContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.75,
+    aspectRatio: 4 / 3, // aspect-[4/3] (웹과 동일)
     position: 'relative',
+    backgroundColor: 'white', // bg-white (웹과 동일)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3, // shadow-md (웹과 동일)
   },
   mediaItem: {
     width: SCREEN_WIDTH,
@@ -512,6 +779,7 @@ const styles = StyleSheet.create({
   },
   authorSection: {
     padding: SPACING.md,
+
     backgroundColor: COLORS.backgroundLight,
   },
   authorInfo: {
@@ -530,11 +798,37 @@ const styles = StyleSheet.create({
   authorText: {
     flex: 1,
   },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
   authorName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 4,
+  },
+  representativeBadgeInPost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    backgroundColor: COLORS.primary + '20',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  representativeBadgeIconInPost: {
+    fontSize: 16,
+  },
+  representativeBadgeNameInPost: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
+    maxWidth: 70,
   },
   authorBadge: {
     fontSize: 14,
@@ -654,6 +948,127 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
   },
+  commentsSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  commentsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  commentUser: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  authorBadgeComment: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  authorBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginLeft: 'auto',
+  },
+  commentText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+  commentInputSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.backgroundLight,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: SPACING.sm,
+  },
+  commentInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    fontSize: 14,
+    color: COLORS.text,
+  },
+  commentSubmitButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentSubmitButtonDisabled: {
+    opacity: 0.5,
+  },
+  heartAnimationContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    pointerEvents: 'none',
+  },
+  heartAnimation: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: COLORS.error,
+    backgroundColor: 'transparent',
+  },
 });
 
 export default PostDetailScreen;
+

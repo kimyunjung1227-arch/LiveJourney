@@ -64,14 +64,14 @@ const PasswordChangeScreen = () => {
           <div className="flex items-center p-4 justify-between">
             <button 
               onClick={() => navigate('/settings')}
-              className="text-text-light dark:text-text-dark flex size-10 shrink-0 items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="flex size-12 shrink-0 items-center justify-center text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               <span className="material-symbols-outlined text-2xl">arrow_back</span>
             </button>
             <h1 className="text-text-light dark:text-text-dark text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
               비밀번호 변경
             </h1>
-            <div className="size-10 shrink-0"></div>
+            <div className="size-12 shrink-0"></div>
           </div>
         </header>
 

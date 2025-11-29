@@ -129,78 +129,7 @@ body {
   scrollbar-width: none;  /* Firefox */
 }
 
-/* 반응형: 모바일 실제 기기 - 모든 화면 크기 대응 */
-@media (max-width: 768px) {
-  body {
-    background: #ffffff;
-    padding: 0;
-    align-items: stretch;
-  }
-  
-  #root {
-    height: 100vh;
-    height: 100dvh; /* 동적 뷰포트 높이 - 주소창 고려 */
-    max-width: none;
-    width: 100%;
-  }
-  
-  .app-container {
-    border-radius: 0;
-    box-shadow: none;
-    height: 100vh;
-    height: 100dvh; /* 동적 뷰포트 높이 */
-    max-width: none;
-    width: 100%;
-    max-height: none;
-    /* 시스템 UI 안전 영역 확보 */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-}
-
-/* 초대형 핸드폰 (갤럭시 폴드 등) */
-@media (min-width: 769px) and (max-width: 1024px) and (max-height: 1366px) {
-  body {
-    background: #ffffff;
-    padding: 0;
-  }
-  
-  #root {
-    height: 100vh;
-    max-width: none;
-  }
-  
-  .app-container {
-    border-radius: 0;
-    box-shadow: none;
-    height: 100vh;
-    max-width: none;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-}
-
-/* 초소형 핸드폰 (SE, Mini 등) - 320px 이하 */
-@media (max-width: 375px) {
-  .screen-header {
-    font-size: 14px;
-  }
-  
-  .screen-body {
-    font-size: 13px;
-  }
-}
-
-/* 대형 핸드폰 (Plus, Max 등) - 414px 이상 */
-@media (min-width: 414px) and (max-width: 768px) {
-  .screen-header {
-    padding: 18px 16px;
-  }
-  
-  .screen-body {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
-  }
-}
+/* 웹은 개발용이므로 고정 사이즈 유지 */
 
 /* 버튼 기본 스타일 */
 button {
@@ -343,4 +272,98 @@ img {
 
 .animate-progress {
   animation: progress 2s linear;
+}
+
+/* 하트 애니메이션 - 네이버 카페 스타일 */
+@keyframes heartBeat {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.0);
+    opacity: 0;
+  }
+}
+
+.heart-animation {
+  animation: heartBeat 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation-fill-mode: forwards;
+}
+
+/* 펄스 링 애니메이션 (큰 하트 강조 효과) */
+@keyframes pulseRing {
+  0% {
+    transform: scale(0);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.pulse-ring {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid #ef4444;
+  background-color: transparent;
+  animation: pulseRing 0.6s ease-out forwards;
+}
+
+/* 작은 하트 네이버 카페 스타일로 떨어지는 애니메이션 */
+@keyframes floatHeart {
+  0% {
+    transform: translateX(var(--translate-x, 0)) translateY(var(--start-y, 0)) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translateX(calc((var(--translate-x, 0) + var(--translate-x-final, 0)) * 0.3)) translateY(100px) scale(0.8) rotate(calc(var(--rotation, 0) * 0.3));
+    opacity: 1;
+  }
+  60% {
+    transform: translateX(calc((var(--translate-x, 0) + var(--translate-x-final, 0)) * 0.6)) translateY(200px) scale(0.6) rotate(calc(var(--rotation, 0) * 0.6));
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(var(--translate-x-final, 0)) translateY(350px) scale(0.4) rotate(var(--rotation, 0));
+    opacity: 0;
+  }
+}
+
+/* Shimmer 애니메이션 */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.floating-heart {
+  position: absolute;
+  animation: floatHeart 2s cubic-bezier(0.4, 0, 0.2, 1) forwards,
+             fadeIn 0.3s ease-out forwards;
+  animation-delay: var(--delay, 0ms), var(--delay, 0ms);
+  animation-fill-mode: both;
 }

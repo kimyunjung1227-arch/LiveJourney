@@ -139,9 +139,9 @@ export const notifyNewLike = async (postId, postLocation, likeCount) => {
   }
 
   sendBrowserNotification(
-    '❤️ 새로운 좋아요',
+    '💚 내 게시물이 도움되었습니다!',
     {
-      body: `"${postLocation}" 사진이 좋아요를 받았습니다! (총 ${likeCount}명)`,
+      body: `"${postLocation}" 사진이 ${likeCount}명에게 도움이 되었습니다!`,
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       tag: `new-like-${postId}`,
@@ -150,13 +150,47 @@ export const notifyNewLike = async (postId, postLocation, likeCount) => {
   );
 };
 
+// 내 게시물이 도움되었습니다 알림 (앱 내부 + 브라우저 푸시)
+export const notifyPostHelped = async (postId, postLocation, likeCount) => {
+  // 앱 내부 알림 추가
+  try {
+    const { addNotification } = await import('./notifications');
+    addNotification({
+      type: 'like',
+      title: '💚 내 게시물이 도움되었습니다!',
+      message: `"${postLocation}" 사진이 ${likeCount}명에게 도움이 되었습니다!`,
+      link: `/post/${postId}`
+    });
+  } catch (error) {
+    console.error('앱 내부 알림 추가 실패:', error);
+  }
+
+  // 브라우저 푸시 알림 (앱이 포커스되어 있지 않을 때만)
+  if (!document.hasFocus()) {
+    const hasPermission = await requestNotificationPermission();
+    if (hasPermission) {
+      sendBrowserNotification(
+        '💚 내 게시물이 도움되었습니다!',
+        {
+          body: `"${postLocation}" 사진이 ${likeCount}명에게 도움이 되었습니다!`,
+          icon: '/favicon.svg',
+          badge: '/favicon.svg',
+          tag: `post-helped-${postId}`,
+          link: `/post/${postId}`
+        }
+      );
+    }
+  }
+};
+
 export default {
   requestNotificationPermission,
   getNotificationPermission,
   sendBrowserNotification,
   notifyLikeMilestone,
   notifyTotalLikesMilestone,
-  notifyNewLike
+  notifyNewLike,
+  notifyPostHelped
 };
 
 

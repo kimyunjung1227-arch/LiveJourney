@@ -83,11 +83,9 @@ const SettingsScreen = () => {
         <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-white dark:border-border-dark dark:bg-gray-900 px-4 shadow-sm">
         <button 
           onClick={() => navigate('/profile')}
-          className="flex size-12 shrink-0 items-center justify-start cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="flex size-12 shrink-0 items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <span className="material-symbols-outlined text-content-light dark:text-content-dark">
-            arrow_back
-          </span>
+          <span className="material-symbols-outlined text-2xl text-content-light dark:text-content-dark">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] text-content-light dark:text-content-dark">
           설정
@@ -363,7 +361,7 @@ const SettingsScreen = () => {
             {/* 아이콘 */}
             <div className="flex justify-center mb-4">
               <div className="flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/30">
-                <span className="material-symbols-outlined text-orange-600 dark:text-orange-400 text-4xl">
+                <span className="material-symbols-outlined text-accent dark:text-accent text-4xl">
                   logout
                 </span>
               </div>

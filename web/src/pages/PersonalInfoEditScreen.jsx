@@ -69,9 +69,9 @@ const PersonalInfoEditScreen = () => {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border-light bg-surface-light/80 dark:border-border-dark dark:bg-surface-dark/80 backdrop-blur-sm px-4">
         <button 
           onClick={() => navigate('/settings')}
-          className="flex size-12 shrink-0 items-center justify-start cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="flex size-12 shrink-0 items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <span className="material-symbols-outlined text-content-light dark:text-content-dark">
+          <span className="material-symbols-outlined text-2xl text-content-light dark:text-content-dark">
             arrow_back
           </span>
         </button>

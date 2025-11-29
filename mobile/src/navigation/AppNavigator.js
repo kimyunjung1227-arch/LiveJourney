@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -20,29 +21,34 @@ import SettingsScreen from '../screens/SettingsScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import DetailScreen from '../screens/DetailScreen';
 import RegionCategoryScreen from '../screens/RegionCategoryScreen';
+import BadgeListScreen from '../screens/BadgeListScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// 메인 탭 네비게이터
+// 메인 탭 네비게이터 (웹과 동일한 디자인)
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSubtle,
+        tabBarInactiveTintColor: '#8a7560', // text-subtle-light
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: COLORS.border,
-          backgroundColor: COLORS.backgroundLight,
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          borderTopColor: '#E0E0E0', // border-light
+          backgroundColor: '#FFFFFF', // background-light
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 80, // h-20 (웹과 동일)
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: 'bold',
+          marginTop: 4, // gap-1
+        },
+        tabBarIconStyle: {
+          marginBottom: 0,
         },
       }}
     >
@@ -51,8 +57,12 @@ function MainTabs() {
         component={MainScreen}
         options={{
           tabBarLabel: '홈',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons 
+              name="home" 
+              size={24} 
+              color={focused ? COLORS.primary : '#8a7560'} 
+            />
           ),
         }}
       />
@@ -61,8 +71,12 @@ function MainTabs() {
         component={SearchScreen}
         options={{
           tabBarLabel: '검색',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons 
+              name="search" 
+              size={24} 
+              color={focused ? COLORS.primary : '#8a7560'} 
+            />
           ),
         }}
       />
@@ -71,8 +85,12 @@ function MainTabs() {
         component={UploadScreen}
         options={{
           tabBarLabel: '업로드',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons 
+              name="add" 
+              size={24} 
+              color={focused ? COLORS.primary : '#8a7560'} 
+            />
           ),
         }}
       />
@@ -81,8 +99,12 @@ function MainTabs() {
         component={MapScreen}
         options={{
           tabBarLabel: '지도',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons 
+              name="map" 
+              size={24} 
+              color={focused ? COLORS.primary : '#8a7560'} 
+            />
           ),
         }}
       />
@@ -91,8 +113,12 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: '프로필',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons 
+              name="person" 
+              size={24} 
+              color={focused ? COLORS.primary : '#8a7560'} 
+            />
           ),
         }}
       />
@@ -158,6 +184,10 @@ export default function AppNavigator() {
             <Stack.Screen 
               name="Upload" 
               component={UploadScreen}
+            />
+            <Stack.Screen 
+              name="BadgeList" 
+              component={BadgeListScreen}
             />
           </>
         )}

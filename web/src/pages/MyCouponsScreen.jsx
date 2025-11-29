@@ -31,7 +31,7 @@ const MyCouponsScreen = () => {
           onClick={() => navigate('/profile')}
           className="flex size-12 shrink-0 items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <span className="material-symbols-outlined text-content-light dark:text-content-dark">arrow_back</span>
+          <span className="material-symbols-outlined text-2xl text-content-light dark:text-content-dark">arrow_back</span>
         </button>
         <h1 className="flex-1 text-center text-lg font-bold text-content-light dark:text-content-dark">
           내 쿠폰함

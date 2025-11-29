@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
 import { getRegionDefaultImage, getRegionDisplayImage } from '../utils/regionDefaultImages';
 import { filterRecentPosts } from '../utils/timeUtils';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -301,41 +302,66 @@ const SearchScreen = () => {
         setRecentSearches(JSON.parse(value));
       }
     });
+    
+    // 게시물 업데이트 이벤트 리스너
+    const handlePostsUpdate = () => {
+      console.log('🔄 검색 화면 - 게시물 업데이트 이벤트 수신');
+      setTimeout(() => {
+        loadRegionPhotos();
+      }, 100);
+    };
+    
+    // React Native에서는 DeviceEventEmitter를 사용하거나 AsyncStorage 변경 감지
+    // 간단하게 주기적으로 확인하는 방식 사용
+    const checkInterval = setInterval(() => {
+      // AsyncStorage 변경 감지를 위한 폴링 (1초마다)
+      loadRegionPhotos();
+    }, 1000);
+    
+    return () => {
+      clearInterval(checkInterval);
+    };
   }, [loadRegionPhotos]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>LiveJourney</Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* 검색창 */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Ionicons name="search" size={20} color={COLORS.primary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="지역 검색 (예: ㄱ, ㅅ, 서울, 부산)"
-              placeholderTextColor={COLORS.textSubtle}
-              value={searchQuery}
-              onChangeText={handleSearchInput}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 헤더 - 웹과 동일한 구조 */}
+        <ScreenHeader>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimaryLight} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>LiveJourney</Text>
+            <View style={styles.headerPlaceholder} />
           </View>
+        </ScreenHeader>
 
-          {/* 검색 결과 */}
-          {showSuggestions && (filteredRegions.length > 0 || searchQuery.trim()) && (
-            <View style={styles.suggestionsContainer}>
+        {/* 메인 컨텐츠 - 웹과 동일한 구조 */}
+        <ScreenBody>
+          {/* 검색창 + 결과 영역 - 웹과 동일한 구조 */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputWrapper}>
+              <View style={styles.searchIconContainer}>
+                <Ionicons name="search" size={20} color={COLORS.primary} />
+              </View>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="지역 검색 (예: ㄱ, ㅅ, 서울, 부산)"
+                placeholderTextColor="#9e7147" // placeholder:text-[#9e7147]
+                value={searchQuery}
+                onChangeText={handleSearchInput}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+              />
+            </View>
+
+            {/* 검색 결과 - 추천 지역 위에 오버레이로 표시 (웹과 동일) */}
+            {showSuggestions && (filteredRegions.length > 0 || searchQuery.trim()) && (
+              <View style={styles.suggestionsContainer}>
               {filteredRegions.length > 0 ? (
                 <View style={styles.suggestionsList}>
                   {filteredRegions.map((region) => (
@@ -393,28 +419,23 @@ const SearchScreen = () => {
                       style={styles.regionImage}
                       resizeMode="cover"
                     />
-                    <View style={styles.regionImageOverlay} />
+                    {/* 그라데이션 오버레이 - 웹 버전과 동일 */}
+                    <View style={styles.gradientOverlayTop} />
+                    <View style={styles.gradientOverlayMiddle} />
+                    <View style={styles.gradientOverlayBottom} />
                     
-                    {/* 좌측상단: 카테고리 아이콘 */}
-                    {region.category && (
-                      <View style={styles.regionCategoryIcon}>
-                        <Text style={styles.regionCategoryEmoji}>
-                          {region.category === '개화 상황' && '🌸'}
-                          {region.category === '맛집 정보' && '🍜'}
-                          {(!region.category || !['개화 상황', '맛집 정보'].includes(region.category)) && '🏞️'}
-                        </Text>
+                    {/* 좌측하단: 지역 정보 - 웹 버전과 동일 */}
+                    <View style={styles.regionInfoContainer}>
+                      <View style={styles.regionInfoGradient} />
+                      <View style={styles.regionInfo}>
+                        <Text style={styles.regionName}>{region.name}</Text>
+                        {region.detailedLocation && (
+                          <Text style={styles.regionLocation}>{region.detailedLocation}</Text>
+                        )}
+                        {region.time && (
+                          <Text style={styles.regionTime}>{region.time}</Text>
+                        )}
                       </View>
-                    )}
-                    
-                    {/* 좌측하단: 지역 정보 */}
-                    <View style={styles.regionInfo}>
-                      <Text style={styles.regionName}>{region.name}</Text>
-                      {region.detailedLocation && (
-                        <Text style={styles.regionLocation}>{region.detailedLocation}</Text>
-                      )}
-                      {region.time && (
-                        <Text style={styles.regionTime}>{region.time}</Text>
-                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -444,28 +465,54 @@ const SearchScreen = () => {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.recentScroll}
             >
-              {recentSearches.map((search, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.recentSearchButton,
-                    index === 0 && styles.recentSearchButtonActive
-                  ]}
-                  onPress={() => handleRecentSearchClick(search)}
-                >
-                  <Text style={[
-                    styles.recentSearchText,
-                    index === 0 && styles.recentSearchTextActive
-                  ]}>
-                    {search}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {recentSearches.map((search, index) => {
+                // 인덱스에 따라 다른 보조 컬러 적용
+                const secondaryColors = [
+                  COLORS.secondary2,  // Green
+                  COLORS.secondary5,  // Cyan
+                  COLORS.secondary3,  // Pink
+                  COLORS.secondary6,  // Indigo
+                ];
+                const secondaryColorsSoft = [
+                  COLORS.secondary2Soft,
+                  COLORS.secondary5Soft,
+                  COLORS.secondary3Soft,
+                  COLORS.secondary6Soft,
+                ];
+                const colorIndex = index % secondaryColors.length;
+                const badgeColor = secondaryColors[colorIndex];
+                const badgeColorSoft = secondaryColorsSoft[colorIndex];
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.recentSearchButton,
+                      index === 0 && [
+                        styles.recentSearchButtonActive,
+                        { backgroundColor: badgeColorSoft, borderColor: badgeColor }
+                      ]
+                    ]}
+                    onPress={() => handleRecentSearchClick(search)}
+                  >
+                    <Text style={[
+                      styles.recentSearchText,
+                      index === 0 && [
+                        styles.recentSearchTextActive,
+                        { color: badgeColor }
+                      ]
+                    ]}>
+                      {search}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           )}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -474,94 +521,154 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md, // p-4 = 16px
+    paddingVertical: SPACING.md, // p-4 = 16px
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md, // p-4 = 16px
+    paddingTop: SPACING.md, // p-4 = 16px
+    paddingBottom: SPACING.sm, // pb-2 = 8px
+    backgroundColor: COLORS.backgroundLight, // bg-white
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.borderLight + '80', // border-border-light/50
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2, // shadow-sm
+    zIndex: 20,
   },
   backButton: {
-    width: 48,
+    width: 48, // size-12 = 48px
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8, // rounded-lg
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
+    fontSize: 20, // text-xl = 20px (웹과 동일)
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: '#1c140d', // text-[#1c140d] (웹과 동일)
+    letterSpacing: -0.3, // tracking-[-0.015em] = -0.3px (웹과 동일)
+    lineHeight: 24, // leading-tight (웹과 동일)
+    flex: 1,
+    textAlign: 'center',
   },
   headerPlaceholder: {
-    width: 48,
-  },
-  scrollView: {
-    flex: 1,
+    width: 48, // w-12 = 48px
   },
   searchContainer: {
-    padding: SPACING.md,
-    backgroundColor: COLORS.backgroundLight,
+    paddingHorizontal: SPACING.md, // px-4 = 16px
+    paddingVertical: 12, // py-3 = 12px
+    backgroundColor: COLORS.backgroundLight, // bg-white
+    position: 'relative', // sticky positioning을 위한 relative
+    zIndex: 30,
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: 999,
-    paddingHorizontal: SPACING.md,
-    height: 56,
-    gap: SPACING.sm,
+    backgroundColor: COLORS.background, // bg-background-light (웹과 동일)
+    borderRadius: 999, // rounded-full (웹과 동일)
+    height: 56, // h-14 = 56px (웹과 동일)
+    borderWidth: 0, // ring으로 처리 (웹과 동일)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1, // shadow-sm (웹과 동일)
+  },
+  searchIconContainer: {
+    width: 56, // w-14 = 56px (웹과 동일)
+    height: 56, // h-14 = 56px (웹과 동일)
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 999, // rounded-l-full (웹과 동일)
+    borderBottomLeftRadius: 999,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(0,0,0,0.1)', // ring-1 ring-inset ring-black/10 (웹과 동일)
+    borderRightWidth: 0,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: COLORS.text,
+    fontSize: 16, // text-base = 16px (웹과 동일)
+    fontWeight: 'normal', // font-normal (웹과 동일)
+    color: '#1c140d', // text-[#1c140d] (웹과 동일)
+    paddingLeft: SPACING.sm, // pl-2 = 8px (웹과 동일)
+    paddingRight: SPACING.md, // px-4 = 16px (웹과 동일)
+    height: 56, // h-14 = 56px (웹과 동일)
+    borderTopRightRadius: 999, // rounded-r-full (웹과 동일)
+    borderBottomRightRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)', // ring-1 ring-inset ring-black/10 (웹과 동일)
+    borderLeftWidth: 0,
   },
   suggestionsContainer: {
     marginTop: SPACING.md,
+    position: 'absolute', // 웹과 동일: 추천 지역 위에 오버레이
+    top: '100%', // 검색창 아래
+    left: 0,
+    right: 0,
+    zIndex: 50, // 추천 지역 위에 표시
   },
   suggestionsList: {
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 16,
+    backgroundColor: COLORS.backgroundLight, // bg-white
+    borderRadius: 16, // rounded-2xl
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: COLORS.primary + '30',
-    maxHeight: 360,
+    borderColor: COLORS.primary + '4D', // ring-2 ring-primary/30
+    maxHeight: 360, // maxHeight: 'calc(60px * 6)'
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.md,
-    gap: SPACING.md,
+    paddingHorizontal: SPACING.md, // px-4 = 16px
+    paddingVertical: SPACING.md, // py-4 = 16px
+    gap: 12, // gap-3 = 12px
+    height: 60, // h-[60px] = 60px
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.border, // border-gray-100
   },
   suggestionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 16, // text-base = 16px
+    fontWeight: '600', // font-semibold
+    color: COLORS.text, // text-[#1c140d]
   },
   noResultsContainer: {
-    backgroundColor: COLORS.backgroundLight,
-    borderRadius: 16,
-    padding: SPACING.xl,
+    backgroundColor: COLORS.backgroundLight, // bg-white
+    borderRadius: 16, // rounded-2xl
+    paddingHorizontal: SPACING.md, // px-4 = 16px
+    paddingVertical: SPACING.lg, // py-6 = 24px
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.error + '30',
+    borderColor: '#FCA5A5', // ring-2 ring-red-300
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8, // shadow-2xl
   },
   noResultsText: {
-    marginTop: SPACING.md,
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    marginTop: SPACING.sm, // mb-2 (아이콘 아래)
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSecondary, // text-gray-500
     marginBottom: SPACING.xs,
   },
   noResultsSubtext: {
-    fontSize: 12,
-    color: COLORS.textSubtle,
+    fontSize: 12, // text-xs = 12px
+    color: COLORS.textSubtle, // text-gray-400
+    marginTop: SPACING.xs, // mt-1 = 4px
   },
   section: {
     paddingTop: SPACING.lg,
@@ -574,11 +681,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   sectionTitle: {
-    ...TYPOGRAPHY.h2,
-    fontSize: 22,
+    fontSize: 22, // text-[22px] = 22px
     fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
+    color: COLORS.text, // text-[#1c140d]
+    letterSpacing: -0.33, // tracking-[-0.015em] = -0.33px
+    lineHeight: 26.4, // leading-tight
+    paddingHorizontal: SPACING.md, // px-4 = 16px
+    paddingBottom: SPACING.sm, // pb-3 = 12px
+    paddingTop: 20, // pt-5 = 20px
   },
   clearButton: {
     fontSize: 14,
@@ -590,15 +700,15 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xxl,
   },
   emptyTitle: {
-    marginTop: SPACING.md,
-    fontSize: 16,
+    marginTop: SPACING.md, // mb-4 (아이콘 아래)
+    fontSize: 16, // text-base = 16px
     fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
+    color: COLORS.text, // text-gray-600
+    marginBottom: SPACING.sm, // mb-2 = 8px
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 14, // text-sm = 14px
+    color: COLORS.textSubtle, // text-gray-400
     textAlign: 'center',
   },
   recommendedScroll: {
@@ -607,7 +717,7 @@ const styles = StyleSheet.create({
   },
   regionCard: {
     width: 280,
-    height: 157.5, // 16:9 비율
+    height: 220, // 세로로 더 긴 직사각형 비율
     borderRadius: 12,
     overflow: 'hidden',
     marginRight: SPACING.md,
@@ -617,13 +727,33 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  regionImageOverlay: {
+  // 그라데이션 오버레이 - 웹 버전과 동일
+  gradientOverlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '30%',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 1,
+  },
+  gradientOverlayMiddle: {
+    position: 'absolute',
+    top: '30%',
+    left: 0,
+    right: 0,
+    height: '20%',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    zIndex: 1,
+  },
+  gradientOverlayBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '60%',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    height: '50%',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    zIndex: 1,
   },
   regionCategoryIcon: {
     position: 'absolute',
@@ -634,39 +764,55 @@ const styles = StyleSheet.create({
   regionCategoryEmoji: {
     fontSize: 24,
   },
-  regionInfo: {
+  regionInfoContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: SPACING.md,
     zIndex: 10,
+  },
+  regionInfoGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  regionInfo: {
+    padding: 12, // padding: '12px'
+    gap: 4, // gap: '4px'
   },
   regionName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.backgroundLight,
-    marginBottom: 4,
+    color: 'white',
+    lineHeight: 19.2, // lineHeight: '1.2'
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 8,
+    marginBottom: 0,
   },
   regionLocation: {
     fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.backgroundLight,
-    marginBottom: 4,
+    fontWeight: 'bold',
+    color: 'white',
+    lineHeight: 15.6, // lineHeight: '1.2'
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 8,
+    marginTop: 4,
+    marginBottom: 0,
   },
   regionTime: {
     fontSize: 12,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.9)',
+    lineHeight: 14.4, // lineHeight: '1.2'
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 8,
+    marginTop: 4,
   },
   emptyRecent: {
     paddingVertical: SPACING.lg,
@@ -687,7 +833,8 @@ const styles = StyleSheet.create({
     marginRight: SPACING.sm,
   },
   recentSearchButtonActive: {
-    backgroundColor: COLORS.primary + '20',
+    // backgroundColor와 borderColor는 동적으로 설정됨
+    borderWidth: 2,
   },
   recentSearchText: {
     fontSize: 14,
@@ -695,7 +842,8 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   recentSearchTextActive: {
-    color: COLORS.primary,
+    // color는 동적으로 설정됨
+    fontWeight: '600',
   },
 });
 

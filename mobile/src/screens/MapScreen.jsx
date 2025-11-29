@@ -22,6 +22,8 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/styles';
 import { getCoordinatesByLocation, searchRegions } from '../utils/regionLocationMapping';
 import { filterRecentPosts, getTimeAgo } from '../utils/timeUtils';
+import { toggleLike, isPostLiked, addComment } from '../utils/socialInteractions';
+import { ScreenLayout, ScreenContent, ScreenHeader, ScreenBody } from '../components/ScreenLayout';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -65,6 +67,17 @@ const MapScreen = () => {
   // 게시물 팝업
   const [showPostPopup, setShowPostPopup] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  
+  // 하트 애니메이션 값
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const pulseScale = useRef(new Animated.Value(0)).current;
+  const pulseOpacity = useRef(new Animated.Value(0)).current;
   
   // 검색
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,7 +102,9 @@ const MapScreen = () => {
     try {
       const postsJson = await AsyncStorage.getItem('uploadedPosts');
       let posts = postsJson ? JSON.parse(postsJson) : [];
-      posts = filterRecentPosts(posts, 2);
+      // 하루(24시간) 동안 올린 사진만 표시
+      posts = filterRecentPosts(posts, 1);
+      console.log(`🗺️ 지도 화면 - 하루 동안 올린 사진: ${posts.length}개`);
       
       const pins = posts
         .map((p) => {
@@ -109,7 +124,7 @@ const MapScreen = () => {
         .filter(Boolean);
       
       setAllPins(pins);
-      updateVisiblePins(pins);
+      // 지도가 준비되면 로딩 해제
       setMapLoading(false);
     } catch (error) {
       console.error('데이터 로드 실패:', error);
@@ -143,6 +158,11 @@ const MapScreen = () => {
   
   // 초기화
   useEffect(() => {
+    // 지도가 준비되면 로딩 해제
+    const timer = setTimeout(() => {
+      setMapLoading(false);
+    }, 1000);
+    
     loadAllData();
     
     // 현재 위치 가져오기
@@ -170,6 +190,29 @@ const MapScreen = () => {
         console.error('위치 가져오기 실패:', error);
       }
     })();
+    
+    return () => clearTimeout(timer);
+  }, [loadAllData]);
+
+  // 게시물 업데이트 이벤트 리스너
+  useEffect(() => {
+    const handlePostsUpdate = () => {
+      console.log('🗺️ 지도 화면 - 게시물 업데이트 이벤트 수신');
+      setTimeout(() => {
+        loadAllData();
+      }, 100);
+    };
+
+    // React Native에서는 DeviceEventEmitter를 사용하거나 AsyncStorage 변경 감지
+    // 간단하게 주기적으로 확인하는 방식 사용
+    const checkInterval = setInterval(() => {
+      // AsyncStorage 변경 감지를 위한 폴링 (1초마다)
+      loadAllData();
+    }, 1000);
+
+    return () => {
+      clearInterval(checkInterval);
+    };
   }, [loadAllData]);
   
   // 검색
@@ -205,11 +248,91 @@ const MapScreen = () => {
   };
   
   // 핀 클릭 핸들러
-  const handlePinPress = (pin) => {
+  const handlePinPress = async (pin) => {
     setSelectedPinId(pin.id);
     setSelectedPost(pin.post);
     setShowPostPopup(true);
+    
+    // 좋아요 상태 및 댓글 초기화
+    if (pin.post) {
+      const isLiked = await isPostLiked(pin.post.id);
+      setLiked(isLiked);
+      setLikeCount(pin.post.likes || pin.post.likeCount || 0);
+      setComments([...(pin.post.comments || []), ...(pin.post.qnaList || [])]);
+    }
   };
+  
+  // 좋아요 처리
+  const handleLike = useCallback(async () => {
+    if (!selectedPost) return;
+    
+    const wasLiked = liked;
+    // 즉각적으로 UI 업데이트
+    const newLikedState = !liked;
+    setLiked(newLikedState);
+    
+    const result = await toggleLike(selectedPost.id);
+    // 결과에 따라 상태 업데이트
+    setLiked(result.isLiked);
+    setLikeCount(result.newCount);
+    
+    // 좋아요를 누를 때만 애니메이션 표시 (좋아요 취소가 아닐 때)
+    if (result.isLiked && !wasLiked) {
+      setShowHeartAnimation(true);
+      heartScale.setValue(0);
+      heartOpacity.setValue(1);
+      pulseScale.setValue(0);
+      pulseOpacity.setValue(0.8);
+      
+      // 큰 하트 애니메이션: 부드럽게 나타났다가 사라짐
+      Animated.parallel([
+        Animated.sequence([
+          Animated.spring(heartScale, {
+            toValue: 1.3,
+            tension: 40,
+            friction: 8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(heartScale, {
+            toValue: 1.0,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.delay(300),
+          Animated.timing(heartOpacity, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]),
+        // 펄스 링 애니메이션 (큰 하트 강조 효과)
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(pulseScale, {
+              toValue: 2.5,
+              duration: 600,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(pulseOpacity, {
+              toValue: 0,
+              duration: 600,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      ]).start(() => {
+        setShowHeartAnimation(false);
+        heartScale.setValue(0);
+        heartOpacity.setValue(0);
+        pulseScale.setValue(0);
+        pulseOpacity.setValue(0.8);
+      });
+    }
+  }, [selectedPost, liked, heartScale, heartOpacity, pulseScale, pulseOpacity]);
   
   // 주변장소 시트 사진 클릭
   const handlePhotoPress = (pin) => {
@@ -264,8 +387,10 @@ const MapScreen = () => {
   ).current;
   
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 지도 */}
+    <ScreenLayout>
+      <ScreenContent>
+        {/* 지도 - 전체 화면 */}
+        <ScreenBody>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -323,7 +448,7 @@ const MapScreen = () => {
           style={styles.searchButton}
           onPress={() => setShowSearch(true)}
         >
-          <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+          <Ionicons name="search" size={20} color="#71717a" />
           <Text style={styles.searchButtonText}>지역 검색</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.refreshButton} onPress={refresh}>
@@ -449,15 +574,6 @@ const MapScreen = () => {
                       style={styles.photoImage}
                       resizeMode="cover"
                     />
-                    {pin.post?.categoryName && (
-                      <View style={styles.categoryIcon}>
-                        <Text style={styles.categoryEmoji}>
-                          {pin.post.categoryName === '개화 상황' && '🌸'}
-                          {pin.post.categoryName === '맛집 정보' && '🍜'}
-                          {(!pin.post.categoryName || !['개화 상황', '맛집 정보'].includes(pin.post.categoryName)) && '🏞️'}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                   <Text style={styles.photoTitle} numberOfLines={1}>
                     {pin.title}
@@ -552,6 +668,35 @@ const MapScreen = () => {
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
+            {/* 하트 애니메이션 오버레이 */}
+            {showHeartAnimation && (
+              <View style={styles.heartAnimationContainer} pointerEvents="none">
+                {/* 펄스 링 (큰 하트 강조 효과) */}
+                <Animated.View
+                  style={[
+                    styles.pulseRing,
+                    {
+                      transform: [{ scale: pulseScale }],
+                      opacity: pulseOpacity,
+                    },
+                  ]}
+                />
+                
+                {/* 큰 중앙 하트 */}
+                <Animated.View
+                  style={[
+                    styles.heartAnimation,
+                    {
+                      transform: [{ scale: heartScale }],
+                      opacity: heartOpacity,
+                    },
+                  ]}
+                >
+                  <Ionicons name="heart" size={120} color="#ef4444" />
+                </Animated.View>
+              </View>
+            )}
+            
             {/* 헤더 */}
             <View style={styles.popupHeader}>
               <Text style={styles.popupTitle}>사진 정보</Text>
@@ -613,30 +758,46 @@ const MapScreen = () => {
               </View>
               
               {/* 태그 */}
-              {((selectedPost?.tags && selectedPost.tags.length > 0) || (selectedPost?.aiLabels && selectedPost.aiLabels.length > 0)) && (
-                <View style={styles.popupTags}>
-                  {(selectedPost.tags || []).map((tag, index) => {
-                    const tagText = typeof tag === 'string' ? tag.replace('#', '') : tag.name || '태그';
-                    const koreanTag = tagTranslations[tagText.toLowerCase()] || tagText;
-                    return (
-                      <View key={index} style={styles.tag}>
-                        <Text style={styles.tagText}>#{koreanTag}</Text>
-                      </View>
-                    );
-                  })}
-                  {(selectedPost.aiLabels || []).map((label, index) => {
-                    const labelText = typeof label === 'string' ? label : (label?.name || label?.label || String(label || ''));
-                    const koreanLabel = labelText && typeof labelText === 'string' 
-                      ? (tagTranslations[labelText.toLowerCase()] || labelText)
-                      : String(labelText || '');
-                    return (
-                      <View key={`ai-${index}`} style={styles.tag}>
-                        <Text style={styles.tagText}>#{koreanLabel}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+              {(() => {
+                // tags와 aiLabels를 합치고 중복 제거
+                const allTags = [];
+                const seenTags = new Set();
+                
+                // tags 처리
+                (selectedPost?.tags || []).forEach((tag) => {
+                  const tagText = typeof tag === 'string' ? tag.replace('#', '') : tag.name || '태그';
+                  const normalizedTag = tagText.toLowerCase().trim();
+                  if (normalizedTag && !seenTags.has(normalizedTag)) {
+                    seenTags.add(normalizedTag);
+                    allTags.push(tagText);
+                  }
+                });
+                
+                // aiLabels 처리
+                (selectedPost?.aiLabels || []).forEach((label) => {
+                  const labelText = typeof label === 'string' ? label : (label?.name || label?.label || String(label || ''));
+                  const normalizedLabel = labelText && typeof labelText === 'string' 
+                    ? labelText.toLowerCase().trim()
+                    : String(labelText || '').toLowerCase().trim();
+                  if (normalizedLabel && !seenTags.has(normalizedLabel)) {
+                    seenTags.add(normalizedLabel);
+                    allTags.push(labelText);
+                  }
+                });
+                
+                return allTags.length > 0 ? (
+                  <View style={styles.popupTags}>
+                    {allTags.map((tag, index) => {
+                      const koreanTag = tagTranslations[tag.toLowerCase()] || tag;
+                      return (
+                        <View key={index} style={styles.tag}>
+                          <Text style={styles.tagText}>#{koreanTag}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null;
+              })()}
               
               {/* 내용 */}
               {selectedPost?.note && (
@@ -647,14 +808,26 @@ const MapScreen = () => {
               
               {/* 좋아요/댓글 */}
               <View style={styles.popupActions}>
-                <TouchableOpacity style={styles.popupActionButton}>
-                  <Ionicons name="heart-outline" size={24} color={COLORS.text} />
-                  <Text style={styles.popupActionText}>{selectedPost?.likes || selectedPost?.likeCount || 0}</Text>
+                <TouchableOpacity style={styles.popupActionButton} onPress={handleLike}>
+                  {liked ? (
+                    <Ionicons
+                      name="heart"
+                      size={24}
+                      color="#ef4444"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="heart-outline"
+                      size={24}
+                      color={COLORS.text}
+                    />
+                  )}
+                  <Text style={styles.popupActionText}>{likeCount}</Text>
                 </TouchableOpacity>
                 <View style={styles.popupActionButton}>
                   <Ionicons name="chatbubble-outline" size={24} color={COLORS.text} />
                   <Text style={styles.popupActionText}>
-                    {(selectedPost?.comments || []).length + (selectedPost?.qnaList || []).length}
+                    {comments.length}
                   </Text>
                 </View>
               </View>
@@ -664,7 +837,15 @@ const MapScreen = () => {
                 style={styles.popupDetailButton}
                 onPress={() => {
                   setShowPostPopup(false);
-                  navigation.navigate('PostDetail', { postId: selectedPost?.id, post: selectedPost });
+                  // allPins에서 모든 게시물 추출
+                  const allPosts = allPins.map(pin => pin.post).filter(Boolean);
+                  const currentIndex = allPosts.findIndex(p => p.id === selectedPost?.id);
+                  navigation.navigate('PostDetail', { 
+                    postId: selectedPost?.id, 
+                    post: selectedPost,
+                    allPosts: allPosts,
+                    currentPostIndex: currentIndex >= 0 ? currentIndex : 0,
+                  });
                 }}
               >
                 <Text style={styles.popupDetailButtonText}>상세 보기</Text>
@@ -673,7 +854,9 @@ const MapScreen = () => {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+        </ScreenBody>
+      </ScreenContent>
+    </ScreenLayout>
   );
 };
 
@@ -812,33 +995,35 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 68,
-    height: 240,
-    backgroundColor: COLORS.backgroundLight,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    bottom: 68, // 네비게이션 바 높이 (웹: calc(68px + env(safe-area-inset-bottom, 0px)))
+    height: 240, // height: 240px (웹과 동일)
+    backgroundColor: 'white', // backgroundColor: 'white' (웹과 동일)
+    borderTopLeftRadius: 24, // borderTopLeftRadius: 24px (웹과 동일)
+    borderTopRightRadius: 24, // borderTopRightRadius: 24px (웹과 동일)
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.15, // boxShadow: '0 -4px 20px rgba(0,0,0,0.15)' (웹과 동일)
     shadowRadius: 20,
     elevation: 10,
     zIndex: 40,
+    paddingBottom: 12, // paddingBottom: 12px (웹과 동일)
   },
   sheetHandle: {
-    padding: SPACING.md,
+    padding: SPACING.md, // padding: 16px (웹과 동일)
   },
   sheetHandleBar: {
-    width: 64,
-    height: 6,
-    backgroundColor: COLORS.border,
-    borderRadius: 999,
+    width: 64, // width: 64px (웹과 동일)
+    height: 6, // height: 6px (웹과 동일)
+    backgroundColor: '#d4d4d8', // backgroundColor: '#d4d4d8' (웹과 동일)
+    borderRadius: 999, // borderRadius: 9999px (웹과 동일)
     alignSelf: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: 12, // marginBottom: 12px (웹과 동일)
   },
   sheetTitle: {
-    fontSize: 16,
+    fontSize: 16, // fontSize: 16px (웹과 동일)
     fontWeight: 'bold',
     color: COLORS.text,
+    margin: 0, // margin: 0 (웹과 동일)
   },
   emptyContainer: {
     flex: 1,
@@ -853,32 +1038,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   photoList: {
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-    gap: SPACING.md,
+    paddingHorizontal: SPACING.md, // padding: 0 16px 16px 16px (웹과 동일)
+    paddingTop: 4, // paddingTop: 4px (웹과 동일)
+    paddingBottom: SPACING.md, // paddingBottom: 16px (웹과 동일)
+    gap: 12, // gap: 12px (웹과 동일)
   },
   photoItem: {
-    width: 96,
-    marginRight: SPACING.md,
+    width: 96, // width: 96px (웹과 동일)
+    marginRight: 0, // gap으로 처리 (웹과 동일)
   },
   photoImageContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 12,
+    width: 96, // width: 96px (웹과 동일)
+    height: 96, // aspectRatio: 1 (웹과 동일)
+    borderRadius: 12, // borderRadius: 12px (웹과 동일)
     overflow: 'hidden',
-    marginBottom: SPACING.xs,
-    borderWidth: 3,
-    borderColor: COLORS.backgroundLight,
+    marginBottom: 0, // marginTop/marginBottom으로 처리 (웹과 동일)
+    borderWidth: 0, // borderWidth는 선택 시에만 (웹과 동일)
+    borderColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.1, // boxShadow: '0 2px 8px rgba(0,0,0,0.1)' (비선택 시, 웹과 동일)
     shadowRadius: 4,
     elevation: 3,
   },
   photoImageContainerSelected: {
-    borderColor: COLORS.primary,
-    borderWidth: 3,
-    transform: [{ scale: 1.05 }],
+    borderColor: COLORS.primary, // borderColor: '#00BCD4' (웹과 동일)
+    borderWidth: 3, // borderWidth: 3px (웹과 동일)
+    transform: [{ scale: 1.05 }], // transform: scale(1.05) (웹과 동일)
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, // boxShadow: '0 0 0 3px #00BCD4, 0 4px 12px rgba(0, 188, 212, 0.4)' (웹과 동일)
+    shadowRadius: 12,
+    elevation: 8,
   },
   photoImage: {
     width: '100%',
@@ -893,11 +1084,18 @@ const styles = StyleSheet.create({
   categoryEmoji: {
     fontSize: 18,
   },
+  photoTitleContainer: {
+    width: 96, // width: 96px (웹과 동일)
+    marginTop: 6, // marginTop: 6px (웹과 동일)
+    marginBottom: 8, // marginBottom: 8px (웹과 동일)
+  },
   photoTitle: {
-    fontSize: 12,
+    fontSize: 12, // fontSize: 12px (웹과 동일)
     fontWeight: '600',
-    color: COLORS.text,
+    color: '#18181b', // color: '#18181b' (웹과 동일)
     lineHeight: 16,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   searchModal: {
     flex: 1,
@@ -996,6 +1194,7 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     maxHeight: '90%',
     overflow: 'hidden',
+    position: 'relative',
   },
   popupHeader: {
     flexDirection: 'row',
@@ -1194,6 +1393,126 @@ const styles = StyleSheet.create({
   pinImage: {
     width: '100%',
     height: '100%',
+  },
+  heartAnimationContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    pointerEvents: 'none',
+  },
+  heartAnimation: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: COLORS.error,
+    backgroundColor: 'transparent',
+  },
+  popupCommentsSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  popupCommentsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  popupCommentItem: {
+    flexDirection: 'row',
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  popupCommentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popupCommentContent: {
+    flex: 1,
+  },
+  popupCommentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  popupCommentUser: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  popupAuthorBadgeComment: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  popupAuthorBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  popupCommentTime: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginLeft: 'auto',
+  },
+  popupCommentText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+  popupCommentInputSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.backgroundLight,
+  },
+  popupCommentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: SPACING.sm,
+  },
+  popupCommentInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    fontSize: 14,
+    color: COLORS.text,
+  },
+  popupCommentSubmitButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popupCommentSubmitButtonDisabled: {
+    opacity: 0.5,
   },
 });
 

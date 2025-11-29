@@ -86,9 +86,9 @@ const FAQScreen = () => {
         <header className="screen-header flex h-16 items-center justify-between border-b border-border-light bg-white dark:border-border-dark dark:bg-gray-900 px-4 shadow-sm">
         <button
           onClick={() => navigate('/settings')}
-          className="flex size-12 shrink-0 items-center justify-start cursor-pointer text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="flex size-12 shrink-0 items-center justify-center cursor-pointer text-content-light dark:text-content-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>arrow_back</span>
+          <span className="material-symbols-outlined text-2xl">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] text-content-light dark:text-content-dark">자주 묻는 질문 (FAQ)</h1>
         <div className="flex size-12 shrink-0 items-center justify-end"></div>
